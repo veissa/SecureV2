@@ -61,6 +61,56 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // User deletion handling
+    const deleteUserButtons = document.querySelectorAll('.delete-user');
+    const deleteUserModal = document.getElementById('deleteUserModal');
+    if (deleteUserButtons.length && deleteUserModal) {
+        let userToDelete = null;
+        const modal = new bootstrap.Modal(deleteUserModal);
+
+        deleteUserButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                userToDelete = this.dataset.userId;
+                modal.show();
+            });
+        });
+
+        document.getElementById('confirmDeleteUser').addEventListener('click', function() {
+            if (userToDelete) {
+                fetch(`/admin/users/${userToDelete}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrf_token')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove user element from DOM
+                        const userElement = document.querySelector(`[data-user-id="${userToDelete}"]`).closest('.user-item');
+                        if (userElement) {
+                            userElement.remove();
+                        } else {
+                            // Reload page if element not found (fallback)
+                            window.location.reload();
+                        }
+                        showNotification('User deleted successfully', 'success');
+                    } else {
+                        throw new Error(data.message || 'Failed to delete user');
+                    }
+                })
+                .catch(error => {
+                    showNotification(error.message || 'Error deleting user', 'error');
+                })
+                .finally(() => {
+                    modal.hide();
+                    userToDelete = null;
+                });
+            }
+        });
+    }
 });
 
 // Helper function to get CSRF token from cookies
@@ -138,4 +188,4 @@ if (fileUploadForm) {
             this.reset();
         });
     });
-} 
+}
