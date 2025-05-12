@@ -612,6 +612,32 @@
                 opacity: 1;
             }
         }
+
+        #notification {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 300px;
+            max-width: 90vw;
+            z-index: 9999;
+            padding: 18px 32px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            opacity: 0.97;
+            transition: opacity 0.3s, top 0.3s;
+        }
+        .notification-success {
+            background: linear-gradient(90deg, #36d1dc, #81dc36);
+            color: #fff;
+        }
+        .notification-error {
+            background: linear-gradient(90deg, #ff5858, #f09819);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -682,6 +708,8 @@
             </div>
             {% endif %}
 
+            <div id="notification" class="flash-message hidden"></div>
+
             <div class="folder-select">
                 <select id="folder-dropdown">
                     <option value="">Root Directory</option>
@@ -691,23 +719,96 @@
                 </select>
             </div>
             
-            <form id="upload-form" enctype="multipart/form-data">
-                <input type="hidden" name="folder_id" id="folder-id-input" value="">
-                <input type="file" id="file-input" name="files[]" multiple class="hidden">
-                
-                <div class="upload-box" id="drop-zone">
-                    <svg class="upload-icon" width="64" height="64" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 16L12 4" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round"/>
-                        <path d="M7 9L12 4L17 9" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round"/>
-                        <path d="M20 16V20H4V16" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <div class="upload-text">Drag & Drop Files Here</div>
-                    <div class="upload-subtext">or select files from your computer</div>
-                    <button type="button" class="file-button" id="browse-button">Browse Files</button>
-                </div>
-            </form>
+            <div id="upload-form-section">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <input type="hidden" name="folder_id" id="folder-id-input" value="">
+                    <input type="file" id="file-input" name="files[]" multiple class="hidden">
+                    <div class="upload-box" id="drop-zone">
+                        <svg class="upload-icon" width="64" height="64" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 16L12 4" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M7 9L12 4L17 9" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M20 16V20H4V16" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <div class="upload-text">Drag & Drop Files Here</div>
+                        <div class="upload-subtext">or select files from your computer</div>
+                        <button type="button" class="file-button" id="browse-button">Browse Files</button>
+                    </div>
+                </form>
+            </div>
             
-            <div class="upload-list">
+            <div class="upload-list" id="section-media-files" style="display:none;">
+                <h3 class="upload-list-title">Media Files</h3>
+                {% if media_files %}
+                    {% for file in media_files %}
+                    <div class="file-progress" data-file-id="{{ file.id }}">
+                        <div class="file-info">
+                            <div class="file-name">{{ file.name }}</div>
+                            <div class="file-size">{{ (file.size / 1024)|round|int }} KB</div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="action-button delete-button" data-file-id="{{ file.id }}">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="black" stroke-width="2"/>
+                                    <path d="M15 9L9 15" stroke="black" stroke-width="2"/>
+                                    <path d="M9 9L15 15" stroke="black" stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="color:#888;">No media files found.</div>
+                {% endif %}
+            </div>
+            <div class="upload-list" id="section-recent-files" style="display:none;">
+                <h3 class="upload-list-title">Recent Files</h3>
+                {% if recent_files %}
+                    {% for file in recent_files %}
+                    <div class="file-progress" data-file-id="{{ file.id }}">
+                        <div class="file-info">
+                            <div class="file-name">{{ file.name }}</div>
+                            <div class="file-size">{{ (file.size / 1024)|round|int }} KB</div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="action-button delete-button" data-file-id="{{ file.id }}">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="black" stroke-width="2"/>
+                                    <path d="M15 9L9 15" stroke="black" stroke-width="2"/>
+                                    <path d="M9 9L15 15" stroke="black" stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="color:#888;">No recent files found.</div>
+                {% endif %}
+            </div>
+            <div class="upload-list" id="section-local-files" style="display:none;">
+                <h3 class="upload-list-title">Local Files</h3>
+                {% if local_files %}
+                    {% for file in local_files %}
+                    <div class="file-progress" data-file-id="{{ file.id }}">
+                        <div class="file-info">
+                            <div class="file-name">{{ file.name }}</div>
+                            <div class="file-size">{{ (file.size / 1024)|round|int }} KB</div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="action-button delete-button" data-file-id="{{ file.id }}">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="black" stroke-width="2"/>
+                                    <path d="M15 9L9 15" stroke="black" stroke-width="2"/>
+                                    <path d="M9 9L15 15" stroke="black" stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="color:#888;">No local files found.</div>
+                {% endif %}
+            </div>
+            <div class="upload-list" id="section-current-uploads">
                 <h3 class="upload-list-title">Current Uploads</h3>
                 <div id="upload-progress-container">
                     {% if uploads_in_progress %}
@@ -870,7 +971,7 @@
                             // Reload the page to show the new uploads
                             window.location.reload();
                         } else {
-                            alert('Upload failed: ' + response.message);
+                            showNotification('Upload failed: ' + response.message, 'error');
                             
                             // Remove temporary elements
                             const tempProgressElements = document.querySelectorAll('.file-progress[data-file-id^="temp-"]');
@@ -879,12 +980,12 @@
                             });
                         }
                     } else {
-                        alert('Upload failed with status: ' + xhr.status);
+                        showNotification('Upload failed with status: ' + xhr.status, 'error');
                     }
                 });
                 
                 xhr.addEventListener('error', function() {
-                    alert('Upload failed. Please try again.');
+                    showNotification('Upload failed. Please try again.', 'error');
                 });
                 
                 xhr.send(formData);
@@ -996,16 +1097,14 @@
                 else if (e.target.closest('.cancel-button') || e.target.closest('.delete-button')) {
                     const button = e.target.closest('.cancel-button') || e.target.closest('.delete-button');
                     const fileId = button.dataset.fileId;
-                    
                     // Skip for temporary uploads that don't have a real file ID yet
-                    if (fileId.startsWith('temp-')) {
+                    if (fileId && fileId.startsWith('temp-')) {
                         const progressElement = document.querySelector(`.file-progress[data-file-id="${fileId}"]`);
                         if (progressElement) {
                             progressElement.remove();
                         }
                         return;
                     }
-                    
                     fetch(`/api/files/${fileId}`, {
                         method: 'DELETE',
                         headers: {
@@ -1020,22 +1119,60 @@
                             if (progressElement) {
                                 progressElement.remove();
                             }
+                            showNotification(data.message || 'Fichier supprimé avec succès', 'success');
+                            window.location.reload();
+                        } else {
+                            showNotification(data.message || 'Une erreur est survenue lors de la suppression du fichier', 'error');
                         }
                     });
                 }
             });
             
-            // Option items click handling
+            // Affichage dynamique des sections
             const optionItems = document.querySelectorAll('.option-item');
-            optionItems.forEach(function(item) {
+            const sectionIds = ['section-current-uploads', 'section-local-files', 'section-media-files', 'section-recent-files'];
+            const optionToSection = {
+                'new-upload': 'section-current-uploads',
+                'local-files': 'section-local-files',
+                'media-files': 'section-media-files',
+                'recent-files': 'section-recent-files'
+            };
+            function showSection(option) {
+                sectionIds.forEach(id => {
+                    document.getElementById(id).style.display = 'none';
+                });
+                document.getElementById(optionToSection[option]).style.display = '';
+                document.querySelector('.selected-title').textContent = 'Selected: ' + document.querySelector('.option-item[data-option="' + option + '"]').textContent.trim();
+                // Afficher ou masquer le formulaire d'upload
+                if (option === 'new-upload' || option === 'local-files') {
+                    document.getElementById('upload-form-section').style.display = '';
+                    // Ajouter ou retirer le champ is_local
+                    let isLocalInput = document.getElementById('is-local-input');
+                    if (option === 'local-files') {
+                        if (!isLocalInput) {
+                            isLocalInput = document.createElement('input');
+                            isLocalInput.type = 'hidden';
+                            isLocalInput.name = 'is_local';
+                            isLocalInput.id = 'is-local-input';
+                            isLocalInput.value = '1';
+                            document.getElementById('upload-form').appendChild(isLocalInput);
+                        }
+                    } else if (isLocalInput) {
+                        isLocalInput.remove();
+                    }
+                } else {
+                    document.getElementById('upload-form-section').style.display = 'none';
+                }
+            }
+            optionItems.forEach(item => {
                 item.addEventListener('click', function() {
                     optionItems.forEach(i => i.classList.remove('active'));
                     this.classList.add('active');
-                    
-                    const option = this.dataset.option;
-                    document.querySelector('.selected-title').textContent = 'Selected: ' + this.textContent.trim();
+                    showSection(this.getAttribute('data-option'));
                 });
             });
+            // Afficher la section par défaut
+            showSection('new-upload');
             
             // Periodically update upload status
             function updateUploadStatus() {
@@ -1057,6 +1194,77 @@
                 const percentage = storageFill.dataset.percentage;
                 storageFill.style.width = `${percentage}%`;
             }
+
+            // Fonction pour afficher une notification
+            function showNotification(message, type = 'success') {
+                const notif = document.getElementById('notification');
+                notif.textContent = message;
+                notif.className = 'flash-message ' + (type === 'success' ? 'success' : 'error');
+                notif.classList.remove('hidden');
+                setTimeout(() => {
+                    notif.classList.add('hidden');
+                }, 3500);
+            }
+
+            // SUPPRESSION UNIVERSELLE DES FICHIERS
+            document.addEventListener('click', async function(e) {
+                if (e.target.closest('.delete-button') || e.target.closest('.cancel-button')) {
+                    const button = e.target.closest('.delete-button') || e.target.closest('.cancel-button');
+                    const fileElement = button.closest('.file-progress');
+                    const fileId = fileElement.dataset.fileId;
+                    const fileSizeText = fileElement.querySelector('.file-size')?.textContent || '';
+
+                    // Log pour debug
+                    console.log('Suppression du fichier', fileId, 'URL:', `/api/files/${fileId}`);
+
+                    // Vérification stricte de l'ID
+                    if (!fileId || isNaN(Number(fileId))) {
+                        showNotification('ID de fichier invalide, impossible de supprimer.', 'error');
+                        return;
+                    }
+
+                    // Ignorer les uploads temporaires
+                    if (fileId.startsWith('temp-')) {
+                        fileElement.remove();
+                        return;
+                    }
+
+                    if (confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) {
+                        try {
+                            let response, data;
+                            // Si le fichier est "In Progress", utiliser la route cancel
+                            if (fileSizeText.includes('In Progress') || fileSizeText.includes('Paused')) {
+                                response = await fetch(`/api/files/${fileId}/cancel`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    }
+                                });
+                            } else {
+                                response = await fetch(`/api/files/${fileId}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    }
+                                });
+                            }
+                            data = await response.json();
+                            if (response.ok && data.success) {
+                                showNotification(data.message || 'Fichier supprimé avec succès', 'success');
+                                setTimeout(() => window.location.reload(), 1200);
+                            } else if (response.status === 404) {
+                                showNotification('Fichier déjà supprimé ou introuvable.', 'error');
+                                setTimeout(() => window.location.reload(), 1200);
+                            } else {
+                                showNotification(data.message || 'Une erreur est survenue lors de la suppression du fichier', 'error');
+                            }
+                        } catch (error) {
+                            console.error('Erreur lors de la suppression:', error);
+                            showNotification('Une erreur est survenue lors de la suppression du fichier. Veuillez réessayer.', 'error');
+                        }
+                    }
+                }
+            });
         });
     </script>
 </body>
