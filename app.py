@@ -14,6 +14,8 @@ import base64
 import hmac
 import hashlib
 import random
+import mimetypes
+from utils import generate_rsa_keys, save_rsa_keys
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -353,10 +355,32 @@ def upload():
         else:
             total_storage_formatted = f"{total_storage/(1024**3):.1f} GB"
         
+        # Media files (images et vidéos)
+        media_files = File.query.filter(
+            File.owner_id == current_user.id,
+            File.status == 'complete',
+            (File.mime_type.like('image/%') | File.mime_type.like('video/%'))
+        ).order_by(File.created_at.desc()).all()
+
+        # Recent files (depuis la dernière connexion)
+        recent_files = []
+        if current_user.last_login:
+            recent_files = File.query.filter(
+                File.owner_id == current_user.id,
+                File.status == 'complete',
+                File.created_at > current_user.last_login
+            ).order_by(File.created_at.desc()).all()
+
+        # Local files (utilise is_starred comme indicateur de local)
+        local_files = File.query.filter_by(owner_id=current_user.id, status='complete', is_starred=True).order_by(File.created_at.desc()).all()
+
         return render_template('upload.html',
                              folders=folders,
                              uploads_in_progress=uploads_in_progress,
                              completed_uploads=completed_uploads,
+                             media_files=media_files,
+                             recent_files=recent_files,
+                             local_files=local_files,
                              used_storage=used_storage_formatted,
                              total_storage=total_storage_formatted,
                              storage_percentage=storage_percentage)
@@ -366,6 +390,9 @@ def upload():
                              folders=[],
                              uploads_in_progress=[],
                              completed_uploads=[],
+                             media_files=[],
+                             recent_files=[],
+                             local_files=[],
                              used_storage="0 B",
                              total_storage="0 B",
                              storage_percentage=0)
@@ -402,16 +429,19 @@ def upload_file():
         unique_filename = f"{uuid.uuid4()}_{filename}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         
+        is_local = request.form.get('is_local') == '1'
+        
         try:
             file.save(file_path)
             new_file = File(
                 name=filename,
                 filename=unique_filename,
                 size=file_size,
-                mime_type=file.content_type,
+                mime_type=get_mime_type(filename),
                 folder_id=folder_id,
                 owner_id=current_user.id,
-                status='complete'
+                status='complete',
+                is_starred=is_local
             )
             db.session.add(new_file)
             db.session.commit()  # Commit each file individually to get ID
@@ -461,22 +491,40 @@ def get_upload_status():
 @app.route('/api/files/<int:file_id>', methods=['DELETE'])
 @login_required
 def delete_file(file_id):
-    file = File.query.get_or_404(file_id)
-    
-    if file.owner_id != current_user.id and not current_user.is_admin:
-        return jsonify({'success': False, 'message': 'Access denied'}), 403
-
     try:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        file = File.query.get_or_404(file_id)
         
+        if file.owner_id != current_user.id and not current_user.is_admin:
+            return jsonify({'success': False, 'message': 'Accès refusé'}), 403
+
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        
+        # Vérifier si le fichier existe
+        if not os.path.exists(file_path):
+            print(f"Le fichier n'existe pas: {file_path}")
+            # Supprimer quand même l'entrée de la base de données
+            db.session.delete(file)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Fichier supprimé de la base de données'})
+
+        try:
+            # Supprimer le fichier physique
+            os.remove(file_path)
+            print(f"Fichier supprimé avec succès: {file_path}")
+        except Exception as e:
+            print(f"Erreur lors de la suppression du fichier: {str(e)}")
+            return jsonify({'success': False, 'message': f'Erreur lors de la suppression du fichier: {str(e)}'}), 500
+
+        # Supprimer l'entrée de la base de données
         db.session.delete(file)
         db.session.commit()
-        return jsonify({'success': True})
+        print(f"Entrée supprimée de la base de données pour le fichier ID: {file_id}")
+        
+        return jsonify({'success': True, 'message': 'Fichier supprimé avec succès'})
     except Exception as e:
+        print(f"Erreur générale lors de la suppression: {str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
+        return jsonify({'success': False, 'message': f'Erreur lors de la suppression: {str(e)}'}), 500
 
 @app.route('/api/files/<int:file_id>/cancel', methods=['POST'])
 @login_required
@@ -583,15 +631,57 @@ def create_folder():
 def download_file(file_id):
     file = File.query.get_or_404(file_id)
     
-    if file.owner_id != current_user.id and not current_user.is_admin:
-        flash('Access denied', 'error')
+    # Vérifier si l'utilisateur a accès au fichier
+    if not current_user.is_admin and file.owner_id != current_user.id:
+        flash('You do not have permission to download this file.', 'error')
         return redirect(url_for('browse'))
-
+    
     return send_file(
         os.path.join(app.config['UPLOAD_FOLDER'], file.filename),
-        download_name=file.name,
-        as_attachment=True
+        as_attachment=True,
+        download_name=file.name
     )
+
+@app.route('/view_file/<int:file_id>')
+@login_required
+def view_file(file_id):
+    file = File.query.get_or_404(file_id)
+    if not current_user.is_admin and file.owner_id != current_user.id:
+        flash('You do not have permission to view this file.', 'error')
+        return redirect(url_for('browse'))
+
+    file_ext = os.path.splitext(file.name)[1].lower()
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    mime_type = file.mime_type or 'application/octet-stream'
+
+    # Affichage pour les fichiers texte
+    ALLOWED_TEXT_EXTENSIONS = {
+        '.txt', '.html', '.css', '.js', '.json', '.xml', '.csv', '.md', '.yaml', '.yml', '.ini', '.cfg',
+    }
+    if file_ext in ALLOWED_TEXT_EXTENSIONS:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                content = f.read()
+        syntax_modes = {
+            '.py': 'python', '.html': 'html', '.css': 'css', '.js': 'javascript', '.json': 'json', '.xml': 'xml', '.md': 'markdown', '.yaml': 'yaml', '.yml': 'yaml'
+        }
+        syntax_mode = syntax_modes.get(file_ext, 'plaintext')
+        return render_template('view_text.html', filename=file.name, content=content, file_id=file_id, syntax_mode=syntax_mode, folder_id=file.folder_id)
+
+    # Affichage pour les PDF
+    if file_ext == '.pdf':
+        return render_template('view_pdf.html', filename=file.name, file_id=file_id, folder_id=file.folder_id)
+
+    # Affichage pour les images
+    if file_ext in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp'}:
+        return render_template('view_image.html', filename=file.name, file_id=file_id, folder_id=file.folder_id)
+
+    # Sinon, proposer le téléchargement
+    flash('Preview not available. Download the file to view it.', 'info')
+    return redirect(url_for('download_file', file_id=file_id))
 
 @app.route('/admin')
 @login_required
@@ -726,15 +816,17 @@ def admin_panel():
                 'usage_percent': round((storage_used / user.storage_limit) * 100, 2) if user.storage_limit > 0 else 0
             })
         
+        all_groups = Group.query.all()
         return render_template('admin_panel.html',
                              users=users,
                              user_storage=user_storage,
                              total_users=len(users),
                              total_files=total_files,
                              total_folders=total_folders,
-                             total_storage=total_storage_formatted)
+                             total_storage=total_storage_formatted,
+                             groups=all_groups)
     except Exception as e:
-        flash(f'An error occurred: {str(e)}', 'error')
+        flash(f'Erreur dans /admin/panel : {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/users', methods=['GET', 'POST', 'DELETE'])
@@ -1116,7 +1208,7 @@ def reset_user_password(user_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)})
 
-@app.route('/admin/groups', methods=['GET', 'POST'])
+@app.route('/admin/groups', methods=['GET', 'POST', 'DELETE'])
 @login_required
 def manage_groups():
     if not current_user.is_admin:
@@ -1164,102 +1256,118 @@ def manage_groups():
             db.session.rollback()
             return jsonify({'success': False, 'message': str(e)})
 
-@app.route('/admin/groups/<int:group_id>/users', methods=['GET', 'POST', 'DELETE'])
+@app.route('/admin/groups/<int:group_id>', methods=['DELETE'])
+@login_required
+def delete_group(group_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Access denied'})
+    
+    try:
+        group = Group.query.get_or_404(group_id)
+        
+        # Remove all user associations
+        group.users = []
+        db.session.commit()
+        
+        # Delete the group
+        db.session.delete(group)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Group deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/admin/groups/<int:group_id>/users', methods=['GET', 'POST'])
 @login_required
 def manage_group_users(group_id):
     if not current_user.is_admin:
         return jsonify({'success': False, 'message': 'Access denied'})
-    
     group = Group.query.get_or_404(group_id)
-    
     if request.method == 'GET':
+        users = User.query.all()
         return jsonify({
             'success': True,
             'users': [{
                 'id': user.id,
-                'email': user.email
-            } for user in group.users]
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'in_group': user.is_admin or (user in group.users)
+            } for user in users]
         })
-    
     elif request.method == 'POST':
         try:
             data = request.get_json()
-            user_id = data.get('user_id')
+            user_ids = data.get('users', [])
             
-            if not user_id:
-                return jsonify({'success': False, 'message': 'User ID is required'})
+            # Get all users
+            users = User.query.filter(User.id.in_(user_ids)).all()
             
-            user = User.query.get_or_404(user_id)
-            if user in group.users:
-                return jsonify({'success': False, 'message': 'User is already in this group'})
-            
-            group.users.append(user)
+            # Update group users
+            group.users = users
             db.session.commit()
             
-            return jsonify({'success': True, 'message': 'User added to group successfully'})
+            return jsonify({'success': True, 'message': 'Group users updated successfully'})
         except Exception as e:
             db.session.rollback()
             return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/admin/users/<int:user_id>/groups', methods=['GET'])
+@login_required
+def get_user_groups(user_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Access denied'})
     
-    elif request.method == 'DELETE':
-        try:
-            data = request.get_json()
-            user_id = data.get('user_id')
-            
-            if not user_id:
-                return jsonify({'success': False, 'message': 'User ID is required'})
-            
-            user = User.query.get_or_404(user_id)
-            if user not in group.users:
-                return jsonify({'success': False, 'message': 'User is not in this group'})
-            
-            group.users.remove(user)
-            db.session.commit()
-            
-            return jsonify({'success': True, 'message': 'User removed from group successfully'})
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'success': False, 'message': str(e)})
+    try:
+        user = User.query.get_or_404(user_id)
+        return jsonify({
+            'success': True,
+            'groups': [{
+                'id': group.id,
+                'name': group.name,
+                'description': group.description
+            } for group in user.groups]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/uploads/<int:file_id>')
+def serve_uploaded_file(file_id):
+    file = File.query.get_or_404(file_id)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    if not os.path.exists(file_path):
+        return "File not found", 404
+    return send_file(file_path, mimetype=file.mime_type or 'application/octet-stream', as_attachment=False, download_name=file.name)
+
+def get_mime_type(filename):
+    mime_type, _ = mimetypes.guess_type(filename)
+    if mime_type is None:
+        # Définir des types MIME par défaut pour les extensions courantes
+        mime_types = {
+            '.py': 'text/x-python',
+            '.js': 'text/javascript',
+            '.html': 'text/html',
+            '.css': 'text/css',
+            '.txt': 'text/plain',
+            '.json': 'application/json',
+            '.xml': 'application/xml',
+            '.csv': 'text/csv',
+            '.md': 'text/markdown',
+            '.yaml': 'text/yaml',
+            '.yml': 'text/yaml',
+            '.ini': 'text/plain',
+            '.cfg': 'text/plain',
+            '.sh': 'text/x-shellscript',
+            '.php': 'text/x-php'
+        }
+        ext = os.path.splitext(filename)[1].lower()
+        return mime_types.get(ext, 'application/octet-stream')
+    return mime_type
 
 if __name__ == '__main__':
     with app.app_context():
-        print("Initializing database...")
-        # Check if database exists
-        if not os.path.exists('cloud.db'):
-            print("Creating new database...")
-            # Create all tables
-            db.create_all()
-            
-            print("Creating default users...")
-            # Initialize default users if they don't exist
-            if not User.query.filter_by(email='user@example.com').first():
-                # Create normal user
-                user = User(email='user@example.com')
-                user.set_password('user123')
-                user.is_admin = False
-                user.storage_limit = 2 * 1024 * 1024 * 1024  # 2GB
-                db.session.add(user)
-                print("Created normal user: user@example.com")
-
-                # Create admin user
-                admin = User(email='admin@example.com')
-                admin.set_password('admin123')
-                admin.is_admin = True
-                admin.storage_limit = 5 * 1024 * 1024 * 1024  # 5GB
-                db.session.add(admin)
-                print("Created admin user: admin@example.com")
-                
-                db.session.commit()
-                print("Users committed to database")
-                
-                print("Initializing RSA keys for users...")
-                # Initialize RSA keys for default users
-                initialize_missing_rsa_keys()
-                print("RSA keys initialized")
-        else:
-            print("Database already exists, skipping initialization...")
-            # Check and create tables if they don't exist
-            db.create_all()
+        # Bloc de réinitialisation supprimé
+        pass
     
     print("Starting Flask application...")
     app.run(debug=True)
