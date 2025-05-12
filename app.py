@@ -15,7 +15,7 @@ import hmac
 import hashlib
 import random
 import mimetypes
-from utils import generate_rsa_keys, save_rsa_keys
+from utils import generate_rsa_keys, save_rsa_keys, generate_hmac, generate_random_iv, encrypt_with_aes, encrypt_with_rsa, decrypt_with_rsa, decrypt_with_aes, sign_message, verify_signature, verify_hmac,get_user_private_key, get_user_public_key
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -1364,10 +1364,27 @@ def get_mime_type(filename):
         return mime_types.get(ext, 'application/octet-stream')
     return mime_type
 
+def generate_random_aes_key(length=32):
+    import os
+    return os.urandom(length)
+
+def generate_hmac(message, key):
+    """Génère un HMAC SHA-256 pour le message donné avec la clé donnée."""
+    import hmac
+    import hashlib
+    import base64
+    h = hmac.new(key, message.encode(), hashlib.sha256)
+    return base64.b64encode(h.digest()).decode()
+
 if __name__ == '__main__':
     with app.app_context():
-        # Bloc de réinitialisation supprimé
-        pass
+        # Régénérer les clés RSA pour tous les utilisateurs
+        from utils import generate_rsa_keys, save_rsa_keys
+        users = User.query.all()
+        for user in users:
+            private_key, public_key = generate_rsa_keys()
+            save_rsa_keys(user.id, private_key, public_key)
+        print(f"Clés RSA régénérées pour {len(users)} utilisateurs.")
     
     print("Starting Flask application...")
     app.run(debug=True)

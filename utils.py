@@ -1,9 +1,12 @@
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import rsa, padding as asym_padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import os
 import base64
+import hmac
+import hashlib
+from cryptography.hazmat.primitives import padding as sym_padding
 
 def generate_rsa_keys():
     """Génère une paire de clés RSA"""
@@ -78,7 +81,7 @@ def encrypt_with_aes(message, key, iv):
     encryptor = cipher.encryptor()
     
     # Padding du message pour avoir une longueur multiple de 16
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padder = sym_padding.PKCS7(algorithms.AES.block_size).padder()
     padded_data = padder.update(message.encode()) + padder.finalize()
     
     # Chiffrement
@@ -99,7 +102,7 @@ def decrypt_with_aes(encrypted_message, key, iv):
     padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
     
     # Suppression du padding
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    unpadder = sym_padding.PKCS7(algorithms.AES.block_size).unpadder()
     data = unpadder.update(padded_data) + unpadder.finalize()
     
     return data.decode()
@@ -108,8 +111,8 @@ def encrypt_with_rsa(data, public_key):
     """Chiffre des données avec une clé publique RSA"""
     encrypted = public_key.encrypt(
         data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        asym_padding.OAEP(
+            mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
@@ -121,10 +124,52 @@ def decrypt_with_rsa(encrypted_data, private_key):
     encrypted = base64.b64decode(encrypted_data)
     decrypted = private_key.decrypt(
         encrypted,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        asym_padding.OAEP(
+            mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
     return decrypted
+
+def generate_hmac(message, key):
+    """Génère un HMAC SHA-256 pour le message donné avec la clé donnée."""
+    h = hmac.new(key, message.encode(), hashlib.sha256)
+    return base64.b64encode(h.digest()).decode()
+
+def sign_message(message, private_key):
+    """Signe un message avec une clé privée RSA (SHA-256)."""
+    signature = private_key.sign(
+        message.encode(),
+        asym_padding.PSS(
+            mgf=asym_padding.MGF1(hashes.SHA256()),
+            salt_length=asym_padding.PSS.MAX_LENGTH
+        ),
+        hashes.SHA256()
+    )
+    return base64.b64encode(signature).decode()
+
+def verify_signature(message, signature, public_key):
+    """Vérifie la signature d'un message avec une clé publique RSA (SHA-256)."""
+    try:
+        public_key.verify(
+            base64.b64decode(signature),
+            message.encode(),
+            asym_padding.PSS(
+                mgf=asym_padding.MGF1(hashes.SHA256()),
+                salt_length=asym_padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return True
+    except Exception:
+        return False
+
+def verify_hmac(message, hmac_to_check, key):
+    """Vérifie qu'un HMAC correspond au message et à la clé donnés (SHA-256)."""
+    import hmac as hmac_lib
+    import hashlib
+    import base64
+    expected_hmac = hmac_lib.new(key, message.encode(), hashlib.sha256)
+    expected_hmac_b64 = base64.b64encode(expected_hmac.digest()).decode()
+    return hmac_to_check == expected_hmac_b64
