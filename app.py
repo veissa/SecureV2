@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,10 +16,17 @@ import hashlib
 import random
 import mimetypes
 from utils import generate_rsa_keys, save_rsa_keys, generate_hmac, generate_random_iv, encrypt_with_aes, encrypt_with_rsa, decrypt_with_rsa, decrypt_with_aes, sign_message, verify_signature, verify_hmac,get_user_private_key, get_user_public_key
+import requests
+import zipfile
+import io
+import re
+import magic
+import requests as pyrequests
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cloud.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(BASE_DIR, 'cloud.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
@@ -55,11 +62,13 @@ class Folder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     parent_id = db.Column(db.Integer, db.ForeignKey('folder.id'))
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     files = db.relationship('File', backref='folder', lazy=True)
     children = db.relationship('Folder', backref=db.backref('parent', remote_side=[id]))
     size_limit = db.Column(db.BigInteger)
+    group = db.relationship('Group', backref='folders')
 
 class File(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -138,7 +147,19 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         remember = 'remember' in request.form
-
+        recaptcha_response = request.form.get('g-recaptcha-response')
+        # Verify reCAPTCHA
+        if not recaptcha_response:
+            flash('Please complete the reCAPTCHA.', 'error')
+            return render_template('login.html')
+        recaptcha_secret = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+        verify_url = 'https://www.google.com/recaptcha/api/siteverify'
+        payload = {'secret': recaptcha_secret, 'response': recaptcha_response, 'remoteip': request.remote_addr}
+        r = requests.post(verify_url, data=payload)
+        result = r.json()
+        if not result.get('success'):
+            flash('Invalid reCAPTCHA. Please try again.', 'error')
+            return render_template('login.html')
         # Check if user is in waiting period
         last_attempt_time = session.get('last_attempt_time')
         if last_attempt_time:
@@ -279,10 +300,20 @@ def browse(folder_id=None):
                 subfolders = Folder.query.filter_by(parent_id=folder_id).all()
                 files = File.query.filter_by(folder_id=folder_id).all()
             else:
-                # Normal users can only access their folders
-                current_folder = Folder.query.filter_by(id=folder_id, owner_id=current_user.id).first_or_404()
-                subfolders = Folder.query.filter_by(parent_id=folder_id, owner_id=current_user.id).all()
-                files = File.query.filter_by(folder_id=folder_id, owner_id=current_user.id).all()
+                # Normal users can only access their folders and group folders
+                current_folder = Folder.query.filter(
+                    (Folder.id == folder_id) & 
+                    ((Folder.owner_id == current_user.id) | 
+                     (Folder.group_id.in_([g.id for g in current_user.groups])))
+                ).first_or_404()
+                
+                subfolders = Folder.query.filter(
+                    (Folder.parent_id == folder_id) & 
+                    ((Folder.owner_id == current_user.id) | 
+                     (Folder.group_id.in_([g.id for g in current_user.groups])))
+                ).all()
+                
+                files = File.query.filter_by(folder_id=folder_id).all()
         else:
             # If no folder is selected
             if current_user.is_admin:
@@ -295,8 +326,12 @@ def browse(folder_id=None):
                     db.session.commit()
                 available_folders = Folder.query.filter(Folder.parent_id.is_(None), Folder.id != root_folder.id).all()
             else:
-                # Normal users only see their root folders
-                available_folders = Folder.query.filter_by(parent_id=None, owner_id=current_user.id).all()
+                # Normal users only see their root folders and group folders
+                available_folders = Folder.query.filter(
+                    (Folder.parent_id.is_(None)) & 
+                    ((Folder.owner_id == current_user.id) | 
+                     (Folder.group_id.in_([g.id for g in current_user.groups])))
+                ).all()
         
         # Get current folder path
         folder_path = []
@@ -327,8 +362,15 @@ def browse(folder_id=None):
 @login_required
 def upload():
     try:
-        folders = Folder.query.filter_by(owner_id=current_user.id).all()
-        
+        if current_user.is_admin:
+            # Admins can see all folders
+            folders = Folder.query.all()
+        else:
+            # Regular users can only see their own folders and group folders they belong to
+            user_folders = Folder.query.filter_by(owner_id=current_user.id).all()
+            group_folders = Folder.query.filter(Folder.group_id.in_([g.id for g in current_user.groups])).all() if current_user.groups else []
+            folders = user_folders + group_folders
+
         # Get in-progress and completed uploads
         try:
             uploads_in_progress = File.query.filter_by(owner_id=current_user.id, status='in_progress').all()
@@ -336,12 +378,12 @@ def upload():
         except:
             uploads_in_progress = []
             completed_uploads = File.query.filter_by(owner_id=current_user.id).limit(5).all()
-        
+
         # Calculate storage usage
         used_storage = sum(f.size for f in current_user.files)
         total_storage = current_user.storage_limit
         storage_percentage = round((used_storage / total_storage) * 100) if total_storage > 0 else 0
-        
+
         # Format for display
         if used_storage < 1024**2:
             used_storage_formatted = f"{used_storage/1024:.1f} KB"
@@ -349,30 +391,24 @@ def upload():
             used_storage_formatted = f"{used_storage/(1024**2):.1f} MB"
         else:
             used_storage_formatted = f"{used_storage/(1024**3):.1f} GB"
-        
+
         if total_storage < 1024**3:
             total_storage_formatted = f"{total_storage/(1024**2):.1f} MB"
         else:
             total_storage_formatted = f"{total_storage/(1024**3):.1f} GB"
-        
-        # Media files (images et vidéos)
+
+        # Media files (all images and videos for the user, from all folders)
         media_files = File.query.filter(
             File.owner_id == current_user.id,
             File.status == 'complete',
             (File.mime_type.like('image/%') | File.mime_type.like('video/%'))
         ).order_by(File.created_at.desc()).all()
 
-        # Recent files (depuis la dernière connexion)
-        recent_files = []
-        if current_user.last_login:
-            recent_files = File.query.filter(
-                File.owner_id == current_user.id,
-                File.status == 'complete',
-                File.created_at > current_user.last_login
-            ).order_by(File.created_at.desc()).all()
-
-        # Local files (utilise is_starred comme indicateur de local)
-        local_files = File.query.filter_by(owner_id=current_user.id, status='complete', is_starred=True).order_by(File.created_at.desc()).all()
+        # Recent files (most recently uploaded files for the user, from all folders)
+        recent_files = File.query.filter(
+            File.owner_id == current_user.id,
+            File.status == 'complete'
+        ).order_by(File.created_at.desc()).limit(10).all()
 
         return render_template('upload.html',
                              folders=folders,
@@ -380,7 +416,6 @@ def upload():
                              completed_uploads=completed_uploads,
                              media_files=media_files,
                              recent_files=recent_files,
-                             local_files=local_files,
                              used_storage=used_storage_formatted,
                              total_storage=total_storage_formatted,
                              storage_percentage=storage_percentage)
@@ -392,7 +427,6 @@ def upload():
                              completed_uploads=[],
                              media_files=[],
                              recent_files=[],
-                             local_files=[],
                              used_storage="0 B",
                              total_storage="0 B",
                              storage_percentage=0)
@@ -403,14 +437,36 @@ def upload_file():
     if 'files[]' not in request.files:
         return jsonify({'success': False, 'message': 'No file part'})
 
+    # Security settings
+    ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'txt'}
+    ALLOWED_MIME = {
+        'pdf': 'application/pdf',
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'doc': 'application/msword',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls': 'application/vnd.ms-excel',
+        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'txt': 'text/plain',
+    }
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    VIRUSTOTAL_API_KEY = '134e44c0dab3892634f100559ebfed57bbe8d03c57cdab3b9f3f100af03a2e03'
+    VIRUSTOTAL_URL = 'https://www.virustotal.com/api/v3/files/'
+
     files = request.files.getlist('files[]')
     folder_id = request.form.get('folder_id', type=int)
+    folder = None
     
-    # Make folder_id optional
     if folder_id:
         folder = Folder.query.get_or_404(folder_id)
-        if folder.owner_id != current_user.id and not current_user.is_admin:
-            return jsonify({'success': False, 'message': 'Access denied'})
+        if not current_user.is_admin:
+            # Check if folder is user's own
+            if folder.owner_id != current_user.id:
+                # Check if folder is a group folder and user is in that group
+                if not folder.group_id or not any(g.id == folder.group_id for g in current_user.groups):
+                    return jsonify({'success': False, 'message': 'Access denied'}), 403
 
     used_storage = sum(f.size for f in current_user.files)
     
@@ -419,17 +475,41 @@ def upload_file():
         if file.filename == '':
             continue
             
-        file_size = len(file.read())
-        file.seek(0)  # Reset file pointer
+        # Extension check
+        ext = file.filename.rsplit('.', 1)[-1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return jsonify({'success': False, 'message': f'File type .{ext} not allowed.'}), 400
         
+        # Size check
+        file.seek(0, 2)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({'success': False, 'message': f'File too large (max 10MB).'}), 400
         if used_storage + file_size > current_user.storage_limit:
             return jsonify({'success': False, 'message': 'Storage limit exceeded'})
             
+        # Magic bytes check
+        magic_bytes = file.read(2048)
+        file.seek(0)
+        mime = magic.from_buffer(magic_bytes, mime=True)
+        if ext in ALLOWED_MIME and not mime.startswith(ALLOWED_MIME[ext].split(';')[0]):
+            return jsonify({'success': False, 'message': f'File content does not match extension: {mime}'}), 400
+        
+        # VirusTotal hash lookup
+        file_hash = hashlib.sha256(file.read()).hexdigest()
+        file.seek(0)
+        headers = {'x-apikey': VIRUSTOTAL_API_KEY}
+        vt_resp = pyrequests.get(VIRUSTOTAL_URL + file_hash, headers=headers)
+        if vt_resp.status_code == 200:
+            vt_json = vt_resp.json()
+            stats = vt_json.get('data', {}).get('attributes', {}).get('last_analysis_stats', {})
+            if stats.get('malicious', 0) > 0 or stats.get('suspicious', 0) > 0:
+                return jsonify({'success': False, 'message': 'File flagged as malicious by VirusTotal.'}), 400
+        
         filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4()}_{filename}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-        
-        is_local = request.form.get('is_local') == '1'
         
         try:
             file.save(file_path)
@@ -440,14 +520,12 @@ def upload_file():
                 mime_type=get_mime_type(filename),
                 folder_id=folder_id,
                 owner_id=current_user.id,
-                status='complete',
-                is_starred=is_local
+                status='complete'
             )
             db.session.add(new_file)
-            db.session.commit()  # Commit each file individually to get ID
-            uploaded_files.append(new_file)  # Add the file object to the list
+            db.session.commit()
+            uploaded_files.append(new_file)
             used_storage += file_size
-            
         except Exception as e:
             return jsonify({'success': False, 'message': str(e)})
 
@@ -591,28 +669,41 @@ def create_folder():
         data = request.get_json()
         name = data.get('name')
         parent_id = data.get('parent_id')
-        size_limit = data.get('size_limit')  # New parameter for size limit
-        
-        if not name:
-            return jsonify({'success': False, 'message': 'Folder name is required'})
-            
+        size_limit = data.get('size_limit')
+        is_group_folder = data.get('is_group_folder', False)
+        group_name = data.get('group_name')
+        group_emails = data.get('group_emails', '')
+        group_id = None
+        if is_group_folder and group_name:
+            group = Group.query.filter_by(name=group_name).first()
+            if not group:
+                group = Group(name=group_name)
+                db.session.add(group)
+                db.session.flush()  # get group.id
+            # Add users by email
+            emails = [e.strip() for e in group_emails.split(',') if e.strip()]
+            for email in emails:
+                user = User.query.filter_by(email=email).first()
+                if user and user not in group.users:
+                    group.users.append(user)
+            if current_user not in group.users:
+                group.users.append(current_user)
+            db.session.flush()
+            group_id = group.id
         # Check if parent folder exists
         if parent_id is not None and parent_id != "null":
             parent = Folder.query.get_or_404(parent_id)
             if parent.owner_id != current_user.id and not current_user.is_admin:
                 return jsonify({'success': False, 'message': 'Access denied'})
-        
-        # Create new folder
         new_folder = Folder(
             name=name,
             parent_id=parent_id if parent_id not in [None, "null"] else None,
-            owner_id=current_user.id,
-            size_limit=size_limit if current_user.is_admin else None  # Only admin can set limit
+            owner_id=current_user.id if not is_group_folder else None,
+            group_id=group_id,
+            size_limit=size_limit if current_user.is_admin else None
         )
-        
         db.session.add(new_folder)
         db.session.commit()
-        
         return jsonify({
             'success': True,
             'message': 'Folder created successfully',
@@ -1376,15 +1467,89 @@ def generate_hmac(message, key):
     h = hmac.new(key, message.encode(), hashlib.sha256)
     return base64.b64encode(h.digest()).decode()
 
+@app.route('/download_folder/<int:folder_id>')
+@login_required
+def download_folder(folder_id):
+    folder = Folder.query.get_or_404(folder_id)
+    # Permission check
+    if not current_user.is_admin and folder.owner_id != current_user.id:
+        flash('You do not have permission to download this folder.', 'error')
+        return redirect(url_for('browse'))
+
+    # Helper to recursively collect files
+    def collect_files(folder, path_prefix=""):
+        files = []
+        for file in folder.files:
+            files.append((os.path.join(path_prefix, file.name), file.filename))
+        for subfolder in folder.children:
+            files.extend(collect_files(subfolder, os.path.join(path_prefix, subfolder.name)))
+        return files
+
+    files_to_zip = collect_files(folder, folder.name)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for arcname, stored_filename in files_to_zip:
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+            if os.path.exists(file_path):
+                zipf.write(file_path, arcname)
+    zip_buffer.seek(0)
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f"{folder.name}.zip"
+    )
+
+@app.route('/api/files/<int:file_id>/preview')
+@login_required
+def api_file_preview(file_id):
+    file = File.query.get_or_404(file_id)
+    if not current_user.is_admin and file.owner_id != current_user.id:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    file_ext = os.path.splitext(file.name)[1].lower()
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    mime_type = file.mime_type or 'application/octet-stream'
+
+    # Text files
+    ALLOWED_TEXT_EXTENSIONS = {
+        '.txt', '.html', '.css', '.js', '.json', '.xml', '.csv', '.md', '.yaml', '.yml', '.ini', '.cfg',
+    }
+    if file_ext in ALLOWED_TEXT_EXTENSIONS:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                content = f.read()
+        syntax_modes = {
+            '.py': 'python', '.html': 'html', '.css': 'css', '.js': 'javascript', '.json': 'json', '.xml': 'xml', '.md': 'markdown', '.yaml': 'yaml', '.yml': 'yaml'
+        }
+        syntax_mode = syntax_modes.get(file_ext, 'plaintext')
+        return jsonify({'success': True, 'type': 'text', 'content': content, 'syntax_mode': syntax_mode, 'filename': file.name})
+
+    # PDF files
+    if file_ext == '.pdf':
+        return jsonify({'success': True, 'type': 'pdf', 'url': url_for('serve_uploaded_file', file_id=file.id), 'filename': file.name})
+
+    # Image files
+    if file_ext in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp'}:
+        return jsonify({'success': True, 'type': 'image', 'url': url_for('serve_uploaded_file', file_id=file.id), 'filename': file.name})
+
+    # Otherwise
+    return jsonify({'success': False, 'type': 'unsupported', 'message': 'Preview not available for this file type.'})
+
+@app.route('/announcements/delete/<int:announcement_id>', methods=['POST'])
+@login_required
+def delete_announcement(announcement_id):
+    ann = Announcement.query.get_or_404(announcement_id)
+    if not (current_user.is_admin or current_user.id == ann.author_id):
+        abort(403)
+    db.session.delete(ann)
+    db.session.commit()
+    flash('Announcement deleted.', 'success')
+    return redirect(url_for('report'))
+
 if __name__ == '__main__':
-    with app.app_context():
-        # Régénérer les clés RSA pour tous les utilisateurs
-        from utils import generate_rsa_keys, save_rsa_keys
-        users = User.query.all()
-        for user in users:
-            private_key, public_key = generate_rsa_keys()
-            save_rsa_keys(user.id, private_key, public_key)
-        print(f"Clés RSA régénérées pour {len(users)} utilisateurs.")
-    
     print("Starting Flask application...")
     app.run(debug=True)

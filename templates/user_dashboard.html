@@ -4,95 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Choose Your Mode</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style3.css') }}">
-    <style>
-        .flash-messages {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-        }
-
-        .alert {
-            padding: 15px 20px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            font-size: 14px;
-            animation: slideIn 0.5s ease-out;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border-left: 4px solid #dc3545;
-        }
-
-        .alert-info {
-            background-color: #e3f2fd;
-            color: #0c5460;
-            border-left: 4px solid #0dcaf0;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border-left: 4px solid #198754;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="flash-messages">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
-    
-    <div class="container">
-        <div class="header">
-            <a href="{{ url_for('logout') }}" class="logout-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M17 16L21 12M21 12L17 8M21 12H7M7 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H7" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Logout
+<body class="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-700">
+    <!-- Navbar -->
+    <nav class="flex items-center justify-between px-6 py-2 bg-white bg-opacity-80 shadow-md text-base min-h-[48px]">
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('logout') }}" class="flex items-center gap-2 px-5 py-2 rounded-full bg-white shadow hover:bg-blue-50 text-gray-800 font-semibold text-lg transition">
+                <span class="text-xl">↩️</span> Logout
             </a>
-            <div class="header-right">
-                <a href="{{ url_for('report') }}" class="report">Annoucements</a>
-                <a href="{{ url_for('messagerie') }}" class="contact-btn">Networking</a>
-                <div class="profile-icon">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Profile Icon">
-                </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('report') }}" class="text-gray-700 font-semibold hover:text-blue-700 transition">Announcements</a>
+            <a href="{{ url_for('messagerie') }}" class="px-5 py-2 rounded-full bg-green-500 hover:bg-green-600 text-white font-semibold transition">Networking</a>
+            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
             </div>
         </div>
-        <h1>CHOOSE YOUR MODE</h1>
-        <div class="mode-selection">
-            <a href="{{ url_for('browse') }}" class="mode-card">
-                <h2>Browse</h2>
-                <div class="icon-container">
-                    <img src="{{ url_for('static', filename='images/browse.png') }}" alt="Browse Icon">
-                </div>
+    </nav>
+    <!-- Main Content -->
+    <div class="flex flex-col items-center justify-center flex-1 w-full min-h-[80vh]">
+        <h1 class="text-3xl font-extrabold text-white tracking-wide mt-16 mb-12">CHOOSE YOUR MODE</h1>
+        <div class="flex flex-row gap-24 w-full max-w-5xl justify-center">
+            <a href="{{ url_for('browse') }}" class="flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl p-12 w-80 h-80 hover:scale-105 transition-all">
+                <span class="text-2xl font-bold mb-6 text-gray-800">Browse</span>
+                <img src="{{ url_for('static', filename='images/browse.png') }}" alt="Browse Icon" class="w-24 h-24 mb-2">
             </a>
-            <a href="{{ url_for('upload') }}" class="mode-card">
-                <h2>Upload</h2>
-                <div class="icon-container">
-                    <img src="{{ url_for('static', filename='images/upload.png') }}" alt="Upload Icon">
-                </div>
+            <a href="{{ url_for('upload') }}" class="flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl p-12 w-80 h-80 hover:scale-105 transition-all">
+                <span class="text-2xl font-bold mb-6 text-gray-800">Upload</span>
+                <img src="{{ url_for('static', filename='images/upload.png') }}" alt="Upload Icon" class="w-24 h-24 mb-2">
             </a>
         </div>
     </div>

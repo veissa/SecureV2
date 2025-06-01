@@ -1,682 +1,277 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(to right, #36d1dc, #0a5fb4);
-            color: black;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .back-button {
-            display: inline-flex;
-            align-items: center;
-            background-color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            width: fit-content;
-            cursor: pointer;
-            font-weight: bold;
-            text-decoration: none;
-            color: black;
-            border: none;
-            font-size: 18px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-        .back-button svg {
-            margin-right: 10px;
-        }
-        
-        .back-button:hover {
-            background-color: #f0f0f0;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-        
-        .admin-title {
-            color: white;
-            font-size: 42px;
-            font-weight: bold;
-            margin: 15px 0 25px 0;
-        }
-        
-        .section-title {
-            color: #0a5fb4;
-            font-size: 24px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .stats-container {
-            background-color: white;
-            border-radius: 25px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        
-        .stat-card {
-            background-color: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: #0a5fb4;
-        }
-        
-        .stat-value {
-            font-size: 36px;
-            font-weight: bold;
-            color: #0a5fb4;
-            margin-bottom: 10px;
-        }
-        
-        .stat-label {
-            font-size: 18px;
-            color: #666;
-        }
-        
-        .user-management {
-            background-color: white;
-            border-radius: 25px;
-            padding: 30px;
-            margin-top: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .btn-add-user {
-            background-color: #0a5fb4;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .btn-add-user:hover {
-            background-color: #094d8f;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        
-        .activity-list {
-            list-style: none;
-            margin-top: 20px;
-        }
-        
-        .activity-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.3s ease;
-        }
-        
-        .activity-item:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .activity-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e3f2fd;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-        }
-        
-        .activity-details {
-            flex-grow: 1;
-        }
-        
-        .activity-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .activity-meta {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .activity-time {
-            font-size: 14px;
-            color: #999;
-        }
-        
-        .warning {
-            color: #dc3545;
-        }
-        
-        .success {
-            color: #28a745;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        
-        .modal-content {
-            background-color: white;
-            padding: 30px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 500px;
-            position: relative;
-        }
-        
-        .modal-title {
-            font-size: 24px;
-            color: #0a5fb4;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .form-input {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: #0a5fb4;
-        }
-        
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .btn-cancel {
-            background-color: #6c757d;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-cancel:hover {
-            background-color: #5a6268;
-        }
-        
-        .btn-submit {
-            background-color: #0a5fb4;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-submit:hover {
-            background-color: #094d8f;
-        }
-
-        .btn-delete {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-            margin-left: 15px;
-        }
-
-        .btn-delete:hover {
-            background-color: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .notification {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            min-width: 250px;
-            padding: 18px 30px;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 18px;
-            z-index: 9999;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s, transform 0.5s;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        }
-        .notification.show {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translateY(0);
-        }
-        .notification.success {
-            background: linear-gradient(90deg, #36dc47, #3ab40a);
-        }
-        .notification.error {
-            background: linear-gradient(90deg, #dc3545, #b40a0a);
-        }
-
-        .user-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn-reset-password,
-        .btn-manage-groups {
-            background-color: #0a5fb4;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-        }
-
-        .btn-reset-password:hover,
-        .btn-manage-groups:hover {
-            background-color: #094d8f;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .group-input-container {
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn-add-group {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-
-        .btn-add-group:hover {
-            background-color: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .current-groups {
-            margin-top: 20px;
-        }
-
-        .current-groups h4 {
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        #userGroupsList {
-            list-style: none;
-            padding: 0;
-        }
-
-        #userGroupsList li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 5px;
-        }
-
-        .btn-remove-group {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 12px;
-        }
-
-        .btn-remove-group:hover {
-            background-color: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-manage-users {
-            background-color: #ff9800;
-            color: white;
-            border: none;
-            padding: 8px 18px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 2px 6px rgba(255, 152, 0, 0.15);
-            margin-left: 10px;
-        }
-        .btn-manage-users:hover {
-            background-color: #fb8c00;
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.25);
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <a href="{{ url_for('admin_dashboard') }}" class="back-button">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="11" stroke="black" stroke-width="2"/>
-            <path d="M15 8L9 12L15 16" stroke="black" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        Back
-    </a>
-    
-    <h1 class="admin-title">ADMIN PANEL</h1>
-    
-    <!-- System Overview -->
-    <div class="stats-container">
-        <h2 class="section-title">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#0a5fb4" stroke-width="2"/>
-                <path d="M15 12L12 9M12 9L9 12M12 9V15" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            System Overview
-        </h2>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{{ total_storage }}</div>
-                <div class="stat-label">Total Storage Used</div>
+<body class="min-h-screen bg-gradient-to-br from-cyan-400 via-blue-400 to-blue-700">
+    <div class="flex min-h-screen">
+        <!-- Left Side Menu -->
+        <div class="w-64 flex flex-col justify-between bg-white bg-opacity-80 shadow-none p-4 min-h-screen">
+            <div>
+                <h2 class="text-xl font-bold text-blue-700 mb-8 px-4 mt-2">Admin Menu</h2>
+                <nav class="space-y-2">
+                    <button onclick="showSection('overview')" class="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition flex items-center gap-3 menu-item active" data-section="overview">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2"/><path d="M15 12L12 9M12 9L9 12M12 9V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Overview
+                    </button>
+                    <button onclick="showSection('users')" class="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition flex items-center gap-3 menu-item" data-section="users">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke="currentColor" stroke-width="2"/></svg>
+                        Users
+                    </button>
+                    <button onclick="showSection('groups')" class="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition flex items-center gap-3 menu-item" data-section="groups">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="currentColor"/><circle cx="12" cy="9" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                        Groups
+                    </button>
+                </nav>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ total_files }}</div>
-                <div class="stat-label">Total Files</div>
+            <div class="flex flex-col gap-3 px-2 pb-2">
+                <a href="{{ url_for('admin_dashboard') }}" class="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold shadow-sm transition text-base justify-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 19L8 12L15 5" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Back
+                </a>
+                <a href="{{ url_for('logout') }}" class="flex items-center gap-2 px-4 py-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 font-semibold shadow-sm transition text-base justify-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 17L21 12L16 7" stroke="#e3342f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" stroke="#e3342f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 19V5C5 3.89543 5.89543 3 7 3H12" stroke="#e3342f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Logout
+                </a>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ total_folders }}</div>
-                <div class="stat-label">Total Folders</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ total_users }}</div>
-                <div class="stat-label">Total Users</div>
+        </div>
+        <!-- Main Content Area -->
+        <div class="flex-1 p-8 flex items-start justify-center">
+            <div class="w-full max-w-5xl">
+                <!-- Overview Section -->
+                <div id="overview-section" class="section active">
+                    <h1 class="text-3xl font-bold text-white tracking-wide mb-8">System Overview</h1>
+                    <div class="bg-white bg-opacity-90 rounded-2xl shadow-lg p-8 flex flex-col gap-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                            <div class="bg-blue-50 rounded-xl p-6 flex flex-col items-center shadow">
+                                <div class="text-2xl font-bold text-blue-700 mb-1">{{ total_storage }}</div>
+                                <div class="text-sm text-blue-500">Total Storage Used</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl p-6 flex flex-col items-center shadow">
+                                <div class="text-2xl font-bold text-blue-700 mb-1">{{ total_files }}</div>
+                                <div class="text-sm text-blue-500">Total Files</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl p-6 flex flex-col items-center shadow">
+                                <div class="text-2xl font-bold text-blue-700 mb-1">{{ total_folders }}</div>
+                                <div class="text-sm text-blue-500">Total Folders</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl p-6 flex flex-col items-center shadow">
+                                <div class="text-2xl font-bold text-blue-700 mb-1">{{ total_users }}</div>
+                                <div class="text-sm text-blue-500">Total Users</div>
+                            </div>
             </div>
         </div>
     </div>
-    
-    <!-- User Management -->
-    <div class="user-management">
-        <h2 class="section-title">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3V21M12 3L8 7M12 3L16 7M5 8L3 12L5 16M19 8L21 12L19 16" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+                <!-- Users Section -->
+                <div id="users-section" class="section hidden">
+                    <h1 class="text-3xl font-bold text-white tracking-wide mb-8">User Management</h1>
+                    <div class="bg-white bg-opacity-90 rounded-2xl shadow-lg p-8 flex flex-col gap-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-blue-700 flex items-center gap-2">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3V21M12 3L8 7M12 3L16 7M5 8L3 12L5 16M19 8L21 12L19 16" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             User Management
         </h2>
-        
-        <button class="btn-add-user" onclick="showAddUserModal()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 5V19M5 12H19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+                            <button class="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 text-white font-semibold shadow hover:scale-105 transition" onclick="showAddUserModal()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Add User
         </button>
-        
-        <ul class="activity-list">
+                        </div>
+                        <ul class="divide-y divide-blue-100">
             {% for user in users %}
-            <li class="activity-item">
-                <div class="activity-icon">
+                            <li class="flex items-center gap-4 py-4">
+                                <div class="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                     {% if user.is_admin %}
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     {% else %}
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="8" r="4" stroke="#0a5fb4" stroke-width="2"/>
-                        <path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke="#0a5fb4" stroke-width="2"/>
-                    </svg>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#0a5fb4" stroke-width="2"/><path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke="#0a5fb4" stroke-width="2"/></svg>
                     {% endif %}
                 </div>
-                <div class="activity-details">
-                    <div class="activity-title">{{ user.email }}</div>
-                    <div class="activity-meta">
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-semibold text-blue-700">{{ user.email }}</div>
                         {% if user.is_admin %}
-                        <span class="badge">Administrator</span>
+                                    <div class="text-xs text-blue-400 font-bold">Administrator</div>
                         {% endif %}
                     </div>
-                </div>
-                <div class="user-actions">
-                    <button class="btn-reset-password" data-user-id="{{ user.id }}">Reset Password</button>
-                    <button class="btn-manage-groups" data-user-id="{{ user.id }}">View Groups</button>
-                    <button class="btn-delete" data-user-id="{{ user.id }}">Delete</button>
+                                <div class="flex gap-2">
+                                    <button class="px-4 py-1 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold shadow btn-reset-password" data-user-id="{{ user.id }}">Reset Password</button>
+                                    <button class="px-4 py-1 rounded-full bg-cyan-100 hover:bg-cyan-200 text-cyan-700 font-semibold shadow btn-manage-groups" data-user-id="{{ user.id }}">View Groups</button>
+                                    <button class="px-4 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-700 font-semibold shadow btn-delete" data-user-id="{{ user.id }}">Delete</button>
                 </div>
             </li>
             {% endfor %}
         </ul>
     </div>
-    
-    <!-- Group Management -->
-    <div class="user-management">
-        <h2 class="section-title">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="#0a5fb4" stroke-width="2"/>
-                <path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="#0a5fb4"/>
-                <circle cx="12" cy="9" r="3" stroke="#0a5fb4" stroke-width="2"/>
-            </svg>
+                </div>
+                <!-- Groups Section -->
+                <div id="groups-section" class="section hidden">
+                    <h1 class="text-3xl font-bold text-white tracking-wide mb-8">Group Management</h1>
+                    <div class="bg-white bg-opacity-90 rounded-2xl shadow-lg p-8 flex flex-col gap-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-blue-700 flex items-center gap-2">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0a5fb4" stroke-width="2"/><path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="#0a5fb4"/><circle cx="12" cy="9" r="3" stroke="#0a5fb4" stroke-width="2"/></svg>
             Group Management
         </h2>
-        <button class="btn-add-user" onclick="showAddGroupModal()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 5V19M5 12H19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+                            <button class="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-green-500 to-cyan-400 text-white font-semibold shadow hover:scale-105 transition" onclick="showAddGroupModal()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Add Group
         </button>
-        <ul class="activity-list">
+                        </div>
+                        <ul class="divide-y divide-blue-100">
             {% for group in groups %}
-            <li class="activity-item">
-                <div class="activity-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#0a5fb4" stroke-width="2"/>
-                        <path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="#0a5fb4"/>
-                        <circle cx="12" cy="9" r="3" stroke="#0a5fb4" stroke-width="2"/>
-                    </svg>
+                            <li class="flex items-center gap-4 py-4">
+                                <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0a5fb4" stroke-width="2"/><path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="#0a5fb4"/><circle cx="12" cy="9" r="3" stroke="#0a5fb4" stroke-width="2"/></svg>
                 </div>
-                <div class="activity-details">
-                    <div class="activity-title">{{ group.name }}</div>
-                    <div class="activity-meta">
-                        {{ group.description or 'No description' }}<br>
-                        Members: {{ group.users.count() }}
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-semibold text-blue-700">{{ group.name }}</div>
+                                    <div class="text-xs text-blue-400">{{ group.description or 'No description' }}</div>
+                                    <div class="text-xs text-gray-400">Members: {{ group.users.count() }}</div>
                     </div>
-                </div>
-                <div class="user-actions">
-                    <button class="btn-manage-users" data-group-id="{{ group.id }}">Manage Users</button>
-                    <button class="btn-delete" data-group-id="{{ group.id }}">Delete</button>
+                                <div class="flex gap-2">
+                                    <button class="px-4 py-1 rounded-full bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-semibold shadow btn-manage-users" data-group-id="{{ group.id }}">Manage Users</button>
+                                    <button class="px-4 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-700 font-semibold shadow btn-delete" data-group-id="{{ group.id }}">Delete</button>
                 </div>
             </li>
             {% endfor %}
         </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- Add User Modal -->
-    <div id="addUserModal" class="modal">
-        <div class="modal-content">
-            <h3 class="modal-title">Add User</h3>
-            <form id="addUserForm">
-                <div class="form-group">
-                    <label class="form-label" for="email">Email</label>
-                    <input type="email" id="email" name="email" class="form-input" required>
+    <!-- Modals (unchanged, just styled by Tailwind) -->
+    <div id="addUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">Add User</h3>
+            <form id="addUserForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="email">Email</label>
+                    <input type="email" id="email" name="email" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="password">Password</label>
-                    <input type="password" id="password" name="password" class="form-input" required>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="password">Password</label>
+                    <input type="password" id="password" name="password" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="confirm_password">Confirm Password</label>
-                    <input type="password" id="confirm_password" name="confirm_password" class="form-input" required>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="is_admin" name="is_admin">
-                        Administrator
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">
+                        <input type="checkbox" id="is_admin" name="is_admin" class="mr-2"> Administrator
                     </label>
                 </div>
-                <div class="modal-buttons">
-                    <button type="button" class="btn-cancel" onclick="hideAddUserModal()">Cancel</button>
-                    <button type="submit" class="btn-submit">Add</button>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" class="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200" onclick="hideAddUserModal()">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded bg-gradient-to-r from-blue-600 to-cyan-400 text-white font-bold shadow hover:scale-105 transition">Add</button>
                 </div>
             </form>
         </div>
     </div>
-    
-    <!-- Reset Password Modal -->
-    <div id="resetPasswordModal" class="modal">
-        <div class="modal-content">
-            <h3 class="modal-title">Reset User Password</h3>
-            <form id="resetPasswordForm">
+    <div id="resetPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">Reset User Password</h3>
+            <form id="resetPasswordForm" class="space-y-4">
                 <input type="hidden" id="resetPasswordUserId">
-                <div class="form-group">
-                    <label class="form-label" for="new_password">New Password</label>
-                    <input type="password" id="new_password" name="new_password" class="form-input" required>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="new_password">New Password</label>
+                    <input type="password" id="new_password" name="new_password" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="confirm_new_password">Confirm New Password</label>
-                    <input type="password" id="confirm_new_password" name="confirm_new_password" class="form-input" required>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="confirm_new_password">Confirm New Password</label>
+                    <input type="password" id="confirm_new_password" name="confirm_new_password" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" required>
                 </div>
-                <div class="modal-buttons">
-                    <button type="button" class="btn-cancel" onclick="hideResetPasswordModal()">Cancel</button>
-                    <button type="submit" class="btn-submit">Reset Password</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Add Group Modal -->
-    <div id="addGroupModal" class="modal">
-        <div class="modal-content">
-            <h3 class="modal-title">Add Group</h3>
-            <form id="addGroupForm">
-                <div class="form-group">
-                    <label class="form-label" for="group_name">Group Name</label>
-                    <input type="text" id="group_name" name="group_name" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="group_description">Description</label>
-                    <input type="text" id="group_description" name="group_description" class="form-input">
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="btn-cancel" onclick="hideAddGroupModal()">Cancel</button>
-                    <button type="submit" class="btn-submit">Add</button>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" class="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200" onclick="hideResetPasswordModal()">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded bg-gradient-to-r from-blue-600 to-cyan-400 text-white font-bold shadow hover:scale-105 transition">Reset Password</button>
                 </div>
             </form>
         </div>
     </div>
-
-    <!-- Manage Group Users Modal -->
-    <div id="manageGroupUsersModal" class="modal">
-        <div class="modal-content">
-            <h3 class="modal-title">Manage Group Users</h3>
+    <div id="addGroupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">Add Group</h3>
+            <form id="addGroupForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="group_name">Group Name</label>
+                    <input type="text" id="group_name" name="group_name" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="group_description">Description</label>
+                    <input type="text" id="group_description" name="group_description" class="w-full px-4 py-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" class="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200" onclick="hideAddGroupModal()">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded bg-gradient-to-r from-green-500 to-cyan-400 text-white font-bold shadow hover:scale-105 transition">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="manageGroupUsersModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">Manage Group Users</h3>
             <input type="hidden" id="currentGroupId">
-            <div class="form-group">
-                <label class="form-label">Select Users</label>
-                <div id="groupUsersList" class="checkbox-list">
-                    <!-- Will be populated dynamically -->
-                </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Select Users</label>
+                <div id="groupUsersList" class="space-y-2"></div>
             </div>
-            <div class="modal-buttons">
-                <button type="button" class="btn-cancel" onclick="hideManageGroupUsersModal()">Cancel</button>
-                <button type="button" class="btn-submit" onclick="saveGroupUsers()">Save</button>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" class="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200" onclick="hideManageGroupUsersModal()">Cancel</button>
+                <button type="button" class="px-5 py-2 rounded bg-gradient-to-r from-yellow-500 to-cyan-400 text-white font-bold shadow hover:scale-105 transition" onclick="saveGroupUsers()">Save</button>
             </div>
         </div>
     </div>
-
-    <!-- View User Groups Modal -->
-    <div id="viewUserGroupsModal" class="modal">
-        <div class="modal-content">
-            <h3 class="modal-title">User Groups</h3>
+    <div id="viewUserGroupsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4">User Groups</h3>
             <input type="hidden" id="currentUserId">
-            <div id="userGroupsList" class="group-list">
-                <!-- Will be populated dynamically -->
-            </div>
-            <div class="modal-buttons">
-                <button type="button" class="btn-cancel" onclick="hideViewUserGroupsModal()">Close</button>
+            <div id="userGroupsList" class="space-y-2"></div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" class="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200" onclick="hideViewUserGroupsModal()">Close</button>
             </div>
         </div>
     </div>
+    <div id="notification" class="fixed top-8 right-8 z-50 px-6 py-4 rounded-lg shadow-lg text-white text-lg font-semibold hidden"></div>
 
-    <div id="notification" class="notification"></div>
+    <style>
+        .menu-item {
+            color: #4B5563;
+        }
+        .menu-item.active {
+            background-color: #EBF5FF;
+            color: #0a5fb4;
+        }
+        .section {
+            display: none;
+        }
+        .section.active {
+            display: block;
+        }
+    </style>
     
     <script>
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+                section.classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(`${sectionId}-section`).classList.remove('hidden');
+            document.getElementById(`${sectionId}-section`).classList.add('active');
+            
+            // Update menu items
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+        }
+
         function showAddUserModal() {
             document.getElementById('addUserModal').style.display = 'flex';
         }
@@ -940,31 +535,6 @@
             }
         }
         
-        // Manage Group Users Handler
-        async function manageGroupUsers(groupId) {
-            try {
-                const response = await fetch(`/admin/groups/${groupId}/users`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    const usersList = document.getElementById('groupUsersList');
-                    usersList.innerHTML = data.users.map(user => `
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="user_${user.id}" value="${user.id}" ${user.in_group ? 'checked' : ''} ${user.is_admin ? 'checked disabled' : ''}>
-                            <label for="user_${user.id}">${user.email}${user.is_admin ? ' (admin)' : ''}</label>
-                        </div>
-                    `).join('');
-                    
-                    document.getElementById('currentGroupId').value = groupId;
-                    document.getElementById('manageGroupUsersModal').style.display = 'flex';
-                } else {
-                    showNotification(data.message, 'error');
-                }
-            } catch (error) {
-                showNotification('An error occurred', 'error');
-            }
-        }
-        
         // Update event listeners
         document.querySelectorAll('.btn-delete[data-user-id]').forEach(btn => {
             btn.addEventListener('click', () => deleteUser(btn.dataset.userId));
@@ -980,10 +550,6 @@
 
         document.querySelectorAll('.btn-manage-groups').forEach(btn => {
             btn.addEventListener('click', () => viewUserGroups(btn.dataset.userId));
-        });
-
-        document.querySelectorAll('.btn-manage-users').forEach(btn => {
-            btn.addEventListener('click', () => manageGroupUsers(btn.dataset.groupId));
         });
 
         function hideViewUserGroupsModal() {

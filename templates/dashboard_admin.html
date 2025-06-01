@@ -4,44 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Choose Your Mode</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style2.css') }}">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <a href="{{ url_for('logout') }}" class="logout-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M17 16L21 12M21 12L17 8M21 12H7M7 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H7" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Logout
+<body class="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-700">
+    <!-- Navbar -->
+    <nav class="flex items-center justify-between px-6 py-2 bg-white bg-opacity-80 shadow-md text-base min-h-[48px]">
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('logout') }}" class="flex items-center gap-2 px-5 py-2 rounded-full bg-white shadow hover:bg-blue-50 text-gray-800 font-semibold text-lg transition">
+                <span class="text-xl">↩️</span> Logout
             </a>
-            <div class="header-right">
-                <a href="{{ url_for('report') }}" class="report">Annoucements</a>
-                <a href="{{ url_for('messagerie') }}" class="contact-btn">Networking</a>
-                <div class="profile-icon">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Profile Icon">
-                </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('report') }}" class="text-gray-700 font-semibold hover:text-blue-700 transition">Announcements</a>
+            <a href="{{ url_for('messagerie') }}" class="px-5 py-2 rounded-full bg-green-500 hover:bg-green-600 text-white font-semibold transition">Networking</a>
+            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
             </div>
         </div>
-        <h1>CHOOSE YOUR MODE</h1>
-        <div class="mode-selection">
-            <a href="{{ url_for('browse') }}" class="mode-card">
-                <h2>Browse</h2>
-                <div class="icon-container">
-                    <img src="{{ url_for('static', filename='images/browse.png') }}" alt="Browse Icon">
+    </nav>
+    <!-- Main Content -->
+    <div class="flex flex-col items-center justify-center min-h-[80vh] px-4">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-white mt-10 mb-10 tracking-tight drop-shadow-lg text-center" style="letter-spacing: 0.04em; text-shadow: 0 6px 32px rgba(0,0,0,0.18);">CHOOSE YOUR MODE</h1>
+        <div class="flex flex-col md:flex-row gap-10 w-full max-w-5xl justify-center">
+            <!-- Browse Card -->
+            <a href="{{ url_for('browse') }}" class="flex-1 bg-white bg-opacity-90 rounded-3xl shadow-[0_8px_40px_0_rgba(59,130,246,0.18)] p-12 flex flex-col items-center justify-center hover:scale-105 transition-transform group border border-blue-100">
+                <div class="mb-7">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-blue-500 group-hover:text-blue-700 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 0c0 4.97 4.03 9 9 9m-9-9c0 4.97-4.03 9-9 9"/></svg>
                 </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Browse</h2>
             </a>
-            <a href="{{ url_for('upload') }}" class="mode-card">
-                <h2>Upload</h2>
-                <div class="icon-container">
-                    <img src="{{ url_for('static', filename='images/upload.png') }}" alt="Upload Icon">
+            <!-- Upload Card -->
+            <a href="{{ url_for('upload') }}" class="flex-1 bg-white bg-opacity-90 rounded-3xl shadow-[0_8px_40px_0_rgba(59,130,246,0.18)] p-12 flex flex-col items-center justify-center hover:scale-105 transition-transform group border border-blue-100">
+                <div class="mb-7">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-blue-500 group-hover:text-blue-700 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16v-8m0 0l-4 4m4-4l4 4m-8 8h8a2 2 0 002-2v-2a2 2 0 00-2-2H8a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>
                 </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Upload</h2>
             </a>
-            <a href="{{ url_for('admin_panel') }}" class="mode-card">
-                <h2>Admin</h2>
-                <div class="icon-container">
-                    <img src="{{ url_for('static', filename='images/admin.png') }}" alt="Admin Icon">
+            <!-- Admin Card -->
+            <a href="{{ url_for('admin_panel') }}" class="flex-1 bg-white bg-opacity-90 rounded-3xl shadow-[0_8px_40px_0_rgba(59,130,246,0.18)] p-12 flex flex-col items-center justify-center hover:scale-105 transition-transform group border border-blue-100">
+                <div class="mb-7">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-blue-500 group-hover:text-blue-700 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                 </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Admin</h2>
             </a>
         </div>
     </div>

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./keys:/app/keys
+      - ./data/db:/app/data/db
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - SECRET_KEY=default-secret-key-for-development
+      - VIRUSTOTAL_API_KEY=134e44c0dab3892634f100559ebfed57bbe8d03c57cdab3b9f3f100af03a2e03
+    restart: unless-stopped 

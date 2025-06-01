@@ -4,211 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vérification Captcha - L-Cloud</title>
-    <style>
-        /* Style Global */
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            display: flex;
-            height: 100vh;
-            background: #f5f5f5;
-        }
-
-        .container {
-            display: flex;
-            width: 100%;
-        }
-
-        /* Partie Gauche (Bleue) */
-        .left-panel {
-            width: 50%;
-            background: linear-gradient(to right, #5de, #004aad);
-            color: white;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            position: relative;
-        }
-
-        .logo-title {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            font-size: 34px;
-            font-weight: bold;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .illustration {
-            width: 80%;
-            max-width: 400px;
-        }
-
-        .slogan {
-            font-size: 21px;
-            color: white;
-            margin-top: 40px;
-        }
-
-        /* Partie Droite (Blanche) */
-        .right-panel {
-            width: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
-
-        .captcha-box {
-            width: 320px;
-            text-align: center;
-        }
-
-        .logo {
-            width: 100px;
-            margin-bottom: 0px;
-            margin-top: -20px;
-        }
-
-        .welcome {
-            font-size: 26px;
-            font-family: 'Tabarra Sans', sans-serif;
-            font-weight: bold;
-            margin-top: -10px;
-        }
-
-        .details {
-            font-size: 14px;
-            font-family: 'Tabarra Sans', sans-serif;
-            color: #777;
-            margin-top: 5px;
-            margin-bottom: 20px;
-            font-style: italic;
-        }
-
-        .input-container {
-            position: relative;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
-        .input-container input {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #ccc;
-            border-radius: 25px;
-            font-size: 17px;
-            outline: none;
-            background: transparent;
-            height: 45px;
-            box-sizing: border-box;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-        }
-
-        .input-container input:focus {
-            border-color: #00c853;
-            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.1);
-        }
-
-        .input-container label {
-            position: absolute;
-            top: 50%;
-            left: 30px;
-            transform: translateY(-50%);
-            font-size: 15px;
-            color: #777;
-            transition: all 0.3s ease;
-            pointer-events: none;
-            background: white;
-            padding: 0 5px;
-        }
-
-        .input-container input:focus + label,
-        .input-container input:not(:placeholder-shown) + label {
-            top: 0;
-            font-size: 12px;
-            color: #00c853;
-            background: white;
-            transform: translateY(-50%);
-        }
-
-        button {
-            background: #00c853;
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 50px;
-            cursor: pointer;
-            margin-top: 20px;
-            font-size: 16px;
-            width: 100%;
-            transition: transform 0.2s ease, background 0.3s ease;
-        }
-
-        button:hover {
-            transform: scale(1.02);
-            background: #00b548;
-        }
-
-        .alert {
-            margin-top: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            text-align: center;
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
-        <!-- Partie Gauche -->
-        <div class="left-panel">
-            <h1 class="logo-title">L-CLOUD</h1>
-            <img src="{{ url_for('static', filename='images/fond.png') }}" alt="Illustration" class="illustration">
-            <p class="slogan">Your data is your data.</p>
-        </div>
-
-        <!-- Partie Droite -->
-        <div class="right-panel">
-            <div class="captcha-box">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="logo">
-                <h2 class="welcome">VÉRIFICATION</h2>
-                <p class="details">Veuillez résoudre le captcha pour continuer</p>
-
-                {% if error %}
-                <div class="alert alert-error">{{ error }}</div>
-                {% endif %}
-
-                <form method="POST">
-                    <div class="input-container">
-                        <input type="text" id="captcha_answer" name="captcha_answer" placeholder=" " required>
-                        <label for="captcha_answer">Réponse à : {{ question }}</label>
-                    </div>
-
-                    <button type="submit">Vérifier</button>
-                </form>
+<body class="min-h-screen bg-cover bg-center flex items-center justify-center" style="background-image: url('/static/images/background.jpg');">
+    <div class="flex w-full min-h-screen items-center justify-center bg-black bg-opacity-40">
+        <div class="flex flex-col md:flex-row w-full max-w-4xl shadow-2xl rounded-2xl overflow-hidden">
+            <!-- Left Panel -->
+            <div class="hidden md:flex flex-col justify-center items-center bg-gradient-to-br from-blue-400 to-blue-900 text-white p-10 w-1/2">
+                <h1 class="text-4xl font-bold mb-4 tracking-wide">L-CLOUD</h1>
+                <img src="{{ url_for('static', filename='images/fond.png') }}" alt="Illustration" class="w-80 max-w-xs rounded-xl shadow-lg mb-6">
+                <p class="text-lg font-medium">Your data is your data.</p>
+            </div>
+            <!-- Right Panel (Captcha Card) -->
+            <div class="flex flex-col justify-center items-center bg-white w-full md:w-1/2 p-8 md:p-12 shadow-[0_0_40px_0_rgba(59,130,246,0.25)]">
+                <div class="w-full max-w-sm">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">VÉRIFICATION</h2>
+                    <p class="text-gray-500 text-center mb-6 italic">Veuillez résoudre le captcha pour continuer</p>
+                    {% if error %}
+                        <div class="mb-4 p-3 rounded bg-red-100 text-red-700 border border-red-200 text-center">{{ error }}</div>
+                    {% endif %}
+                    <form method="POST" class="space-y-5">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3 shadow mb-2">
+                            <span class="text-lg font-semibold text-blue-700">Solve:</span>
+                            <span class="text-lg font-bold text-blue-900">{{ question }}</span>
+                            <input type="text" id="captcha_answer" name="captcha_answer" required placeholder="?" class="ml-2 w-20 px-2 py-1 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg shadow transition">Vérifier</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
