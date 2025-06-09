@@ -22,6 +22,7 @@ import io
 import re
 import magic
 import requests as pyrequests
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -36,6 +37,7 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -81,6 +83,11 @@ class File(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_starred = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(20), nullable=False, default='complete')
+    # New fields for encryption
+    encrypted_aes_key = db.Column(db.Text, nullable=True)  # AES key encrypted with owner's public key
+    iv = db.Column(db.Text, nullable=True)  # Initialization vector for AES
+    hmac = db.Column(db.Text, nullable=True)  # HMAC for integrity verification
+    is_encrypted = db.Column(db.Boolean, default=True)  # Flag to indicate if file is encrypted
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -462,9 +469,7 @@ def upload_file():
     if folder_id:
         folder = Folder.query.get_or_404(folder_id)
         if not current_user.is_admin:
-            # Check if folder is user's own
             if folder.owner_id != current_user.id:
-                # Check if folder is a group folder and user is in that group
                 if not folder.group_id or not any(g.id == folder.group_id for g in current_user.groups):
                     return jsonify({'success': False, 'message': 'Access denied'}), 403
 
@@ -512,7 +517,29 @@ def upload_file():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         
         try:
-            file.save(file_path)
+            # Read file content
+            file_content = file.read()
+            
+            # Generate encryption keys
+            aes_key = generate_random_aes_key()
+            iv = generate_random_iv()
+            
+            # Encrypt file content
+            encrypted_content = encrypt_with_aes(file_content, aes_key, iv)
+            
+            # Get user's public key
+            user_public_key = get_user_public_key(current_user.id)
+            
+            # Encrypt AES key with user's public key
+            encrypted_aes_key = encrypt_with_rsa(aes_key, user_public_key)
+            
+            # Generate HMAC for integrity verification
+            hmac_value = generate_hmac(encrypted_content, aes_key)
+            
+            # Save encrypted content
+            with open(file_path, 'wb') as f:
+                f.write(encrypted_content)
+            
             new_file = File(
                 name=filename,
                 filename=unique_filename,
@@ -520,7 +547,11 @@ def upload_file():
                 mime_type=get_mime_type(filename),
                 folder_id=folder_id,
                 owner_id=current_user.id,
-                status='complete'
+                status='complete',
+                encrypted_aes_key=encrypted_aes_key,
+                iv=base64.b64encode(iv).decode(),
+                hmac=hmac_value,
+                is_encrypted=True
             )
             db.session.add(new_file)
             db.session.commit()
@@ -722,16 +753,53 @@ def create_folder():
 def download_file(file_id):
     file = File.query.get_or_404(file_id)
     
-    # Vérifier si l'utilisateur a accès au fichier
+    # Check if user has access to the file
     if not current_user.is_admin and file.owner_id != current_user.id:
         flash('You do not have permission to download this file.', 'error')
         return redirect(url_for('browse'))
     
-    return send_file(
-        os.path.join(app.config['UPLOAD_FOLDER'], file.filename),
-        as_attachment=True,
-        download_name=file.name
-    )
+    try:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        
+        if not file.is_encrypted:
+            return send_file(
+                file_path,
+                as_attachment=True,
+                download_name=file.name
+            )
+        
+        # Read encrypted content
+        with open(file_path, 'rb') as f:
+            encrypted_content = f.read()
+        
+        # Verify HMAC
+        if not verify_hmac(encrypted_content, file.hmac, file.encrypted_aes_key):
+            flash('File integrity check failed.', 'error')
+            return redirect(url_for('browse'))
+        
+        # Get user's private key
+        user_private_key = get_user_private_key(current_user.id)
+        
+        # Decrypt AES key
+        aes_key = decrypt_with_rsa(file.encrypted_aes_key, user_private_key)
+        
+        # Decrypt content
+        iv = base64.b64decode(file.iv)
+        decrypted_content = decrypt_with_aes(encrypted_content, aes_key, iv)
+        
+        # Create a temporary file with decrypted content
+        temp_file = io.BytesIO(decrypted_content)
+        temp_file.seek(0)
+        
+        return send_file(
+            temp_file,
+            as_attachment=True,
+            download_name=file.name,
+            mimetype=file.mime_type
+        )
+    except Exception as e:
+        flash(f'Error downloading file: {str(e)}', 'error')
+        return redirect(url_for('browse'))
 
 @app.route('/view_file/<int:file_id>')
 @login_required

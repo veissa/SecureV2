@@ -63,16 +63,16 @@ def get_user_private_key(user_id):
     except:
         return None
 
-def generate_random_aes_key():
-    """Génère une clé AES aléatoire"""
-    return os.urandom(32)  # 256 bits
+def generate_random_aes_key(length=32):
+    """Generate a random AES key"""
+    return os.urandom(length)
 
 def generate_random_iv():
-    """Génère un vecteur d'initialisation aléatoire pour AES"""
-    return os.urandom(16)  # 128 bits
+    """Generate a random initialization vector for AES"""
+    return os.urandom(16)
 
-def encrypt_with_aes(message, key, iv):
-    """Chiffre un message avec AES"""
+def encrypt_with_aes(data, key, iv):
+    """Encrypt data with AES"""
     cipher = Cipher(
         algorithms.AES(key),
         modes.CBC(iv),
@@ -80,16 +80,16 @@ def encrypt_with_aes(message, key, iv):
     )
     encryptor = cipher.encryptor()
     
-    # Padding du message pour avoir une longueur multiple de 16
-    padder = sym_padding.PKCS7(algorithms.AES.block_size).padder()
-    padded_data = padder.update(message.encode()) + padder.finalize()
+    # Pad the data
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(data) + padder.finalize()
     
-    # Chiffrement
+    # Encrypt
     encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
-    return base64.b64encode(encrypted_data).decode()
+    return encrypted_data
 
-def decrypt_with_aes(encrypted_message, key, iv):
-    """Déchiffre un message avec AES"""
+def decrypt_with_aes(encrypted_data, key, iv):
+    """Decrypt data with AES"""
     cipher = Cipher(
         algorithms.AES(key),
         modes.CBC(iv),
@@ -97,18 +97,17 @@ def decrypt_with_aes(encrypted_message, key, iv):
     )
     decryptor = cipher.decryptor()
     
-    # Déchiffrement
-    encrypted_data = base64.b64decode(encrypted_message)
+    # Decrypt
     padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
     
-    # Suppression du padding
-    unpadder = sym_padding.PKCS7(algorithms.AES.block_size).unpadder()
+    # Unpad
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
     data = unpadder.update(padded_data) + unpadder.finalize()
     
-    return data.decode()
+    return data
 
 def encrypt_with_rsa(data, public_key):
-    """Chiffre des données avec une clé publique RSA"""
+    """Encrypt data with RSA public key"""
     encrypted = public_key.encrypt(
         data,
         asym_padding.OAEP(
@@ -120,7 +119,7 @@ def encrypt_with_rsa(data, public_key):
     return base64.b64encode(encrypted).decode()
 
 def decrypt_with_rsa(encrypted_data, private_key):
-    """Déchiffre des données avec une clé privée RSA"""
+    """Decrypt data with RSA private key"""
     encrypted = base64.b64decode(encrypted_data)
     decrypted = private_key.decrypt(
         encrypted,
@@ -132,10 +131,15 @@ def decrypt_with_rsa(encrypted_data, private_key):
     )
     return decrypted
 
-def generate_hmac(message, key):
-    """Génère un HMAC SHA-256 pour le message donné avec la clé donnée."""
-    h = hmac.new(key, message.encode(), hashlib.sha256)
+def generate_hmac(data, key):
+    """Generate HMAC for data integrity verification"""
+    h = hmac.new(key, data, hashlib.sha256)
     return base64.b64encode(h.digest()).decode()
+
+def verify_hmac(data, hmac_value, key):
+    """Verify HMAC for data integrity"""
+    expected_hmac = generate_hmac(data, key)
+    return hmac.compare_digest(hmac_value, expected_hmac)
 
 def sign_message(message, private_key):
     """Signe un message avec une clé privée RSA (SHA-256)."""
@@ -164,12 +168,3 @@ def verify_signature(message, signature, public_key):
         return True
     except Exception:
         return False
-
-def verify_hmac(message, hmac_to_check, key):
-    """Vérifie qu'un HMAC correspond au message et à la clé donnés (SHA-256)."""
-    import hmac as hmac_lib
-    import hashlib
-    import base64
-    expected_hmac = hmac_lib.new(key, message.encode(), hashlib.sha256)
-    expected_hmac_b64 = base64.b64encode(expected_hmac.digest()).decode()
-    return hmac_to_check == expected_hmac_b64

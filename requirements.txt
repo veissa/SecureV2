@@ -10,4 +10,5 @@ Flask-WTF==1.2.1
 WTForms==3.1.2
 python-dateutil==2.8.2
 requests==2.31.0
-gunicorn==20.1.0 
+gunicorn==20.1.0
+Flask-Migrate==4.0.5 
