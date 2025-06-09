@@ -23,6 +23,7 @@ import re
 import magic
 import requests as pyrequests
 from flask_migrate import Migrate
+from sqlalchemy import or_
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -292,78 +293,73 @@ def user_dashboard():
 @login_required
 def browse(folder_id=None):
     try:
-        # Get current folder and its subfolders
         current_folder = None
         subfolders = []
         files = []
         available_folders = []
         root_folder = None
-        
+        group_ids = [g.id for g in current_user.groups]
         if folder_id:
-            # If a specific folder is requested
             if current_user.is_admin:
-                # Admins can access all folders
                 current_folder = Folder.query.get_or_404(folder_id)
                 subfolders = Folder.query.filter_by(parent_id=folder_id).all()
                 files = File.query.filter_by(folder_id=folder_id).all()
             else:
-                # Normal users can only access their folders and group folders
-                current_folder = Folder.query.filter(
-                    (Folder.id == folder_id) & 
-                    ((Folder.owner_id == current_user.id) | 
-                     (Folder.group_id.in_([g.id for g in current_user.groups])))
-                ).first_or_404()
-                
-                subfolders = Folder.query.filter(
-                    (Folder.parent_id == folder_id) & 
-                    ((Folder.owner_id == current_user.id) | 
-                     (Folder.group_id.in_([g.id for g in current_user.groups])))
-                ).all()
-                
+                # Only show folder if user owns it or is in the group
+                if group_ids:
+                    current_folder = Folder.query.filter(
+                        Folder.id == folder_id,
+                        or_(Folder.owner_id == current_user.id, Folder.group_id.in_(group_ids))
+                    ).first_or_404()
+                    subfolders = Folder.query.filter(
+                        Folder.parent_id == folder_id,
+                        or_(Folder.owner_id == current_user.id, Folder.group_id.in_(group_ids))
+                    ).all()
+                else:
+                    current_folder = Folder.query.filter(
+                        Folder.id == folder_id,
+                        Folder.owner_id == current_user.id
+                    ).first_or_404()
+                    subfolders = Folder.query.filter(
+                        Folder.parent_id == folder_id,
+                        Folder.owner_id == current_user.id
+                    ).all()
                 files = File.query.filter_by(folder_id=folder_id).all()
         else:
-            # If no folder is selected
             if current_user.is_admin:
-                # Admins see all root folders and the root folder
                 root_folder = Folder.query.filter_by(name='root', parent_id=None).first()
                 if not root_folder:
-                    # Create root folder if it doesn't exist
                     root_folder = Folder(name='root', owner_id=current_user.id)
                     db.session.add(root_folder)
                     db.session.commit()
                 available_folders = Folder.query.filter(Folder.parent_id.is_(None), Folder.id != root_folder.id).all()
             else:
-                # Normal users only see their root folders and group folders
-                available_folders = Folder.query.filter(
-                    (Folder.parent_id.is_(None)) & 
-                    ((Folder.owner_id == current_user.id) | 
-                     (Folder.group_id.in_([g.id for g in current_user.groups])))
-                ).all()
-        
-        # Get current folder path
+                if group_ids:
+                    available_folders = Folder.query.filter(
+                        Folder.parent_id.is_(None),
+                        or_(Folder.owner_id == current_user.id, Folder.group_id.in_(group_ids))
+                    ).all()
+                else:
+                    available_folders = Folder.query.filter(
+                        Folder.parent_id.is_(None),
+                        Folder.owner_id == current_user.id
+                    ).all()
         folder_path = []
         if current_folder:
             folder = current_folder
             while folder:
                 folder_path.insert(0, folder)
                 folder = folder.parent
-        
-        return render_template('browse.html', 
-                             current_folder=current_folder,
-                             subfolders=subfolders,
-                             files=files,
-                             folder_path=folder_path,
-                             available_folders=available_folders,
-                             root_folder=root_folder)
+        return render_template('browse.html',
+                              current_folder=current_folder,
+                              subfolders=subfolders,
+                              files=files,
+                              folder_path=folder_path,
+                              available_folders=available_folders,
+                              root_folder=root_folder)
     except Exception as e:
         flash(str(e), 'error')
-        return render_template('browse.html', 
-                             current_folder=None,
-                             subfolders=[],
-                             files=[],
-                             folder_path=[],
-                             available_folders=[],
-                             root_folder=None)
+        return redirect(url_for('browse'))
 
 @app.route('/upload')
 @login_required
@@ -705,6 +701,7 @@ def create_folder():
         group_name = data.get('group_name')
         group_emails = data.get('group_emails', '')
         group_id = None
+
         if is_group_folder and group_name:
             group = Group.query.filter_by(name=group_name).first()
             if not group:
@@ -719,13 +716,15 @@ def create_folder():
                     group.users.append(user)
             if current_user not in group.users:
                 group.users.append(current_user)
-            db.session.flush()
+            db.session.commit()  # Commit group-user relationships before folder creation
             group_id = group.id
+
         # Check if parent folder exists
         if parent_id is not None and parent_id != "null":
             parent = Folder.query.get_or_404(parent_id)
             if parent.owner_id != current_user.id and not current_user.is_admin:
                 return jsonify({'success': False, 'message': 'Access denied'})
+
         new_folder = Folder(
             name=name,
             parent_id=parent_id if parent_id not in [None, "null"] else None,
@@ -735,15 +734,7 @@ def create_folder():
         )
         db.session.add(new_folder)
         db.session.commit()
-        return jsonify({
-            'success': True,
-            'message': 'Folder created successfully',
-            'folder': {
-                'id': new_folder.id,
-                'name': new_folder.name,
-                'size_limit': new_folder.size_limit
-            }
-        })
+        return jsonify({'success': True, 'message': 'Folder created successfully'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)})
