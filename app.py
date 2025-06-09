@@ -1523,28 +1523,32 @@ def serve_uploaded_file(file_id):
             # Read encrypted content
             with open(file_path, 'rb') as f:
                 encrypted_content = f.read()
-            print(f"Type of encrypted_content (api_file_preview): {type(encrypted_content)}")
 
             # Get user's private key
             user_private_key = get_user_private_key(current_user.id)
-            print(f"Type of user_private_key (api_file_preview): {type(user_private_key)}")
             
             # Decrypt AES key
             aes_key = decrypt_with_rsa(file.encrypted_aes_key, user_private_key)
-            print(f"Type of aes_key (api_file_preview, after decrypt_with_rsa): {type(aes_key)}")
 
             # Verify HMAC
-            print(f"Type of file.hmac (api_file_preview): {type(file.hmac)}")
             if not verify_hmac(encrypted_content, file.hmac, aes_key):
                 print(f"HMAC verification failed for file ID: {file_id}")
                 return "File integrity check failed or access denied.", 403
 
             # Decrypt content
             iv = base64.b64decode(file.iv)
-            print(f"Type of iv (api_file_preview): {type(iv)}")
             decrypted_content = decrypt_with_aes(encrypted_content, aes_key, iv)
-            print(f"Type of decrypted_content (api_file_preview): {type(decrypted_content)}")
-            content = decrypted_content.decode('utf-8')
+
+            # Create a temporary file-like object for decrypted content
+            temp_file = io.BytesIO(decrypted_content)
+            temp_file.seek(0) # Rewind to the beginning
+
+            return send_file(
+                temp_file,
+                mimetype=file.mime_type or 'application/octet-stream',
+                as_attachment=False,  # Not as attachment for preview/direct view
+                download_name=file.name # For client-side filename hint
+            )
         except Exception as e:
             print(f"Error decrypting or serving file {file_id}: {e}")
             return "Error serving file", 500
