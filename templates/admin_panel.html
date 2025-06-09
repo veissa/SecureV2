@@ -62,9 +62,9 @@
                                 <div class="text-2xl font-bold text-blue-700 mb-1">{{ total_users }}</div>
                                 <div class="text-sm text-blue-500">Total Users</div>
                             </div>
-            </div>
-        </div>
-    </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Users Section -->
                 <div id="users-section" class="section hidden">
                     <h1 class="text-3xl font-bold text-white tracking-wide mb-8">User Management</h1>
@@ -72,38 +72,38 @@
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-xl font-bold text-blue-700 flex items-center gap-2">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3V21M12 3L8 7M12 3L16 7M5 8L3 12L5 16M19 8L21 12L19 16" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            User Management
-        </h2>
+                                User Management
+                            </h2>
                             <button class="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 text-white font-semibold shadow hover:scale-105 transition" onclick="showAddUserModal()">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Add User
-        </button>
+                                Add User
+                            </button>
                         </div>
                         <ul class="divide-y divide-blue-100">
-            {% for user in users %}
+                            {% for user in users %}
                             <li class="flex items-center gap-4 py-4">
                                 <div class="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                    {% if user.is_admin %}
+                                    {% if user.is_admin %}
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="#0a5fb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    {% else %}
+                                    {% else %}
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#0a5fb4" stroke-width="2"/><path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke="#0a5fb4" stroke-width="2"/></svg>
-                    {% endif %}
-                </div>
+                                    {% endif %}
+                                </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="font-semibold text-blue-700">{{ user.email }}</div>
-                        {% if user.is_admin %}
+                                    {% if user.is_admin %}
                                     <div class="text-xs text-blue-400 font-bold">Administrator</div>
-                        {% endif %}
-                    </div>
+                                    {% endif %}
+                                </div>
                                 <div class="flex gap-2">
                                     <button class="px-4 py-1 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold shadow btn-reset-password" data-user-id="{{ user.id }}">Reset Password</button>
                                     <button class="px-4 py-1 rounded-full bg-cyan-100 hover:bg-cyan-200 text-cyan-700 font-semibold shadow btn-manage-groups" data-user-id="{{ user.id }}">View Groups</button>
                                     <button class="px-4 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-700 font-semibold shadow btn-delete" data-user-id="{{ user.id }}">Delete</button>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 </div>
                 <!-- Groups Section -->
                 <div id="groups-section" class="section hidden">
@@ -112,31 +112,31 @@
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-xl font-bold text-blue-700 flex items-center gap-2">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0a5fb4" stroke-width="2"/><path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="#0a5fb4"/><circle cx="12" cy="9" r="3" stroke="#0a5fb4" stroke-width="2"/></svg>
-            Group Management
-        </h2>
+                                Group Management
+                            </h2>
                             <button class="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-green-500 to-cyan-400 text-white font-semibold shadow hover:scale-105 transition" onclick="showAddGroupModal()">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Add Group
-        </button>
+                                Add Group
+                            </button>
                         </div>
                         <ul class="divide-y divide-blue-100">
-            {% for group in groups %}
+                            {% for group in groups %}
                             <li class="flex items-center gap-4 py-4">
                                 <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0a5fb4" stroke-width="2"/><path d="M8 15C8 13.3431 9.34315 12 11 12H13C14.6569 12 16 13.3431 16 15V17H8V15Z" fill="#0a5fb4"/><circle cx="12" cy="9" r="3" stroke="#0a5fb4" stroke-width="2"/></svg>
-                </div>
+                                </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="font-semibold text-blue-700">{{ group.name }}</div>
                                     <div class="text-xs text-blue-400">{{ group.description or 'No description' }}</div>
                                     <div class="text-xs text-gray-400">Members: {{ group.users.count() }}</div>
-                    </div>
+                                </div>
                                 <div class="flex gap-2">
                                     <button class="px-4 py-1 rounded-full bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-semibold shadow btn-manage-users" data-group-id="{{ group.id }}">Manage Users</button>
                                     <button class="px-4 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-700 font-semibold shadow btn-delete" data-group-id="{{ group.id }}">Delete</button>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -510,18 +510,18 @@
             }
         }
         
-        // View User Groups Handler
+        // View User Groups Handlers
         async function viewUserGroups(userId) {
             try {
                 const response = await fetch(`/admin/users/${userId}/groups`);
                 const data = await response.json();
-                
+
                 if (data.success) {
-                    const groupsList = document.getElementById('userGroupsList');
-                    groupsList.innerHTML = data.groups.map(group => `
-                        <div class="group-item">
-                            <span>${group.name}</span>
-                            <small>${group.description || 'No description'}</small>
+                    const userGroupsList = document.getElementById('userGroupsList');
+                    userGroupsList.innerHTML = data.groups.map(group => `
+                        <div class="p-2 border-b border-blue-100 last:border-b-0">
+                            <span class="font-semibold text-blue-700">${group.name}</span>
+                            <span class="text-sm text-gray-500"> - ${group.description || 'No description'}</span>
                         </div>
                     `).join('');
                     
@@ -534,31 +534,56 @@
                 showNotification('An error occurred', 'error');
             }
         }
-        
-        // Update event listeners
-        document.querySelectorAll('.btn-delete[data-user-id]').forEach(btn => {
-            btn.addEventListener('click', () => deleteUser(btn.dataset.userId));
-        });
-
-        document.querySelectorAll('.btn-delete[data-group-id]').forEach(btn => {
-            btn.addEventListener('click', () => deleteGroup(btn.dataset.groupId));
-        });
-
-        document.querySelectorAll('.btn-reset-password').forEach(btn => {
-            btn.addEventListener('click', () => showResetPasswordModal(btn.dataset.userId));
-        });
-
-        document.querySelectorAll('.btn-manage-groups').forEach(btn => {
-            btn.addEventListener('click', () => viewUserGroups(btn.dataset.userId));
-        });
 
         function hideViewUserGroupsModal() {
             document.getElementById('viewUserGroupsModal').style.display = 'none';
+            document.getElementById('userGroupsList').innerHTML = ''; // Clear content on close
         }
 
         function hideManageGroupUsersModal() {
             document.getElementById('manageGroupUsersModal').style.display = 'none';
+            document.getElementById('groupUsersList').innerHTML = ''; // Clear content on close
         }
+
+        // Add event listeners when the document is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set initial active section
+            showSection('overview'); // Ensure overview is shown on load
+
+            // Add event listeners for delete buttons
+            document.querySelectorAll('.btn-delete').forEach(button => {
+                button.addEventListener('click', function() {
+                    const userId = this.dataset.userId;
+                    const groupId = this.dataset.groupId;
+                    if (userId) {
+                        deleteUser(userId);
+                    } else if (groupId) {
+                        deleteGroup(groupId);
+                    }
+                });
+            });
+
+            // Add event listeners for reset password buttons
+            document.querySelectorAll('.btn-reset-password').forEach(button => {
+                button.addEventListener('click', function() {
+                    showResetPasswordModal(this.dataset.userId);
+                });
+            });
+
+            // Add event listeners for manage users buttons
+            document.querySelectorAll('.btn-manage-users').forEach(button => {
+                button.addEventListener('click', function() {
+                    manageGroupUsers(this.dataset.groupId);
+                });
+            });
+
+            // Add event listeners for view groups buttons
+            document.querySelectorAll('.btn-manage-groups').forEach(button => {
+                button.addEventListener('click', function() {
+                    viewUserGroups(this.dataset.userId);
+                });
+            });
+        });
     </script>
 </body>
 </html> 

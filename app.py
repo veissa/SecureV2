@@ -918,6 +918,7 @@ def admin_panel():
                              groups=all_groups)
     except Exception as e:
         flash(f'Erreur dans /admin/panel : {str(e)}', 'error')
+        print(f'Error in /admin/panel: {e}')
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/users', methods=['GET', 'POST', 'DELETE'])
