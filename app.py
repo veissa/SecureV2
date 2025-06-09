@@ -762,17 +762,17 @@ def download_file(file_id):
         # Read encrypted content
         with open(file_path, 'rb') as f:
             encrypted_content = f.read()
-        
-        # Verify HMAC
-        if not verify_hmac(encrypted_content, file.hmac, file.encrypted_aes_key):
-            flash('File integrity check failed.', 'error')
-            return redirect(url_for('browse'))
-        
+
         # Get user's private key
         user_private_key = get_user_private_key(current_user.id)
         
         # Decrypt AES key
         aes_key = decrypt_with_rsa(file.encrypted_aes_key, user_private_key)
+
+        # Verify HMAC
+        if not verify_hmac(encrypted_content, file.hmac, aes_key):
+            flash('File integrity check failed.', 'error')
+            return redirect(url_for('browse'))
         
         # Decrypt content
         iv = base64.b64decode(file.iv)
@@ -1155,6 +1155,8 @@ def send_message():
         receiver_id = data.get('receiver_id')
         content = data.get('content')
         
+        print(f"send_message: Received content type: {type(content)}")
+
         if not receiver_id or not content:
             return jsonify({'success': False, 'message': 'Missing required fields'})
         
@@ -1170,29 +1172,47 @@ def send_message():
         hmac_key = os.urandom(32)  # Separate HMAC key to verify integrity
         iv = generate_random_iv()  # Initialization vector for AES
         
+        print(f"send_message: message_aes_key type: {type(message_aes_key)}")
+        print(f"send_message: hmac_key type: {type(hmac_key)}")
+        print(f"send_message: iv type: {type(iv)}")
+
         # 2. Prepare message
         timestamp = datetime.utcnow().isoformat()
         message_with_timestamp = f"{content}|{timestamp}"
-        
+        print(f"send_message: message_with_timestamp type (before encode): {type(message_with_timestamp)}")
+
         # 3. Generate HMAC to verify integrity
-        message_hmac = generate_hmac(message_with_timestamp, hmac_key)
+        # Ensure message_with_timestamp is bytes before passing to generate_hmac
+        message_with_timestamp_bytes = message_with_timestamp.encode('utf-8')
+        print(f"send_message: message_with_timestamp_bytes type: {type(message_with_timestamp_bytes)}")
+        message_hmac = generate_hmac(message_with_timestamp_bytes, hmac_key)
+        print(f"send_message: message_hmac type: {type(message_hmac)}")
         
         # 4. Encrypt message with AES
-        encrypted_content = encrypt_with_aes(message_with_timestamp, message_aes_key, iv)
-        
+        encrypted_content = encrypt_with_aes(message_with_timestamp_bytes, message_aes_key, iv)
+        print(f"send_message: encrypted_content type: {type(encrypted_content)}")
+
         # 5. Get RSA keys
         receiver_public_key = get_user_public_key(receiver_id)
         sender_private_key = get_user_private_key(current_user.id)
         
+        print(f"send_message: receiver_public_key type: {type(receiver_public_key)}")
+        print(f"send_message: sender_private_key type: {type(sender_private_key)}")
+
         if not receiver_public_key or not sender_private_key:
             return jsonify({'success': False, 'message': 'Missing encryption keys'})
         
         # 6. Encrypt symmetric keys with receiver's public key
         encrypted_aes_key = encrypt_with_rsa(message_aes_key, receiver_public_key)
         encrypted_hmac_key = encrypt_with_rsa(hmac_key, receiver_public_key)
+
+        print(f"send_message: encrypted_aes_key type: {type(encrypted_aes_key)}")
+        print(f"send_message: encrypted_hmac_key type: {type(encrypted_hmac_key)}")
         
         # 7. Sign message with sender's private key
-        message_signature = sign_message(message_with_timestamp, sender_private_key)
+        # Ensure message_with_timestamp_bytes is passed to sign_message
+        message_signature = sign_message(message_with_timestamp_bytes, sender_private_key)
+        print(f"send_message: message_signature type: {type(message_signature)}")
         
         # 8. Create message in database
         message = Message(
@@ -1284,19 +1304,25 @@ def get_messages(user_id):
                 if message.sender_id == current_user.id:
                     # If we are the sender, use original message
                     content = message.original_content
+                    print(f"get_messages: Sender content type: {type(content)}")
                 else:
                     # If we are the receiver
                     private_key = get_user_private_key(current_user.id)
                     public_key = get_user_public_key(user_id)
                     
+                    print(f"get_messages: Receiver private_key type: {type(private_key)}")
+                    print(f"get_messages: Receiver public_key type: {type(public_key)}")
+
                     # Decrypt message
                     aes_key = decrypt_with_rsa(message.encrypted_aes_key, private_key)
+                    print(f"get_messages: Receiver aes_key type (after decrypt_with_rsa): {type(aes_key)}")
                     decrypted_content = decrypt_with_aes(
                         message.encrypted_content,
                         aes_key,
                         message.iv
                     )
-                    
+                    print(f"get_messages: Receiver decrypted_content type: {type(decrypted_content)}")
+
                     # Verify signature
                     if not verify_signature(decrypted_content, message.signature, public_key):
                         print(f"Invalid signature for message {message.id}")
@@ -1304,11 +1330,13 @@ def get_messages(user_id):
                     
                     # Verify integrity with HMAC
                     hmac_key = decrypt_with_rsa(message.encrypted_hmac_key, private_key)
+                    print(f"get_messages: Receiver hmac_key type (after decrypt_with_rsa): {type(hmac_key)}")
                     if not verify_hmac(decrypted_content, message.hmac, hmac_key):
                         print(f"Invalid HMAC for message {message.id}")
                         continue
                     
                     content, timestamp = decrypted_content.split('|')
+                    print(f"get_messages: Receiver content type (after split): {type(content)}")
                 
                 decrypted_messages.append({
                     'id': message.id,
@@ -1486,9 +1514,43 @@ def get_user_groups(user_id):
 def serve_uploaded_file(file_id):
     file = File.query.get_or_404(file_id)
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+
     if not os.path.exists(file_path):
         return "File not found", 404
-    return send_file(file_path, mimetype=file.mime_type or 'application/octet-stream', as_attachment=False, download_name=file.name)
+
+    if file.is_encrypted:
+        try:
+            # Read encrypted content
+            with open(file_path, 'rb') as f:
+                encrypted_content = f.read()
+            print(f"Type of encrypted_content (api_file_preview): {type(encrypted_content)}")
+
+            # Get user's private key
+            user_private_key = get_user_private_key(current_user.id)
+            print(f"Type of user_private_key (api_file_preview): {type(user_private_key)}")
+            
+            # Decrypt AES key
+            aes_key = decrypt_with_rsa(file.encrypted_aes_key, user_private_key)
+            print(f"Type of aes_key (api_file_preview, after decrypt_with_rsa): {type(aes_key)}")
+
+            # Verify HMAC
+            print(f"Type of file.hmac (api_file_preview): {type(file.hmac)}")
+            if not verify_hmac(encrypted_content, file.hmac, aes_key):
+                print(f"HMAC verification failed for file ID: {file_id}")
+                return "File integrity check failed or access denied.", 403
+
+            # Decrypt content
+            iv = base64.b64decode(file.iv)
+            print(f"Type of iv (api_file_preview): {type(iv)}")
+            decrypted_content = decrypt_with_aes(encrypted_content, aes_key, iv)
+            print(f"Type of decrypted_content (api_file_preview): {type(decrypted_content)}")
+            content = decrypted_content.decode('utf-8')
+        except Exception as e:
+            print(f"Error decrypting or serving file {file_id}: {e}")
+            return "Error serving file", 500
+    else:
+        # Serve unencrypted file directly
+        return send_file(file_path, mimetype=file.mime_type or 'application/octet-stream', as_attachment=False, download_name=file.name)
 
 def get_mime_type(filename):
     mime_type, _ = mimetypes.guess_type(filename)
@@ -1524,7 +1586,9 @@ def generate_hmac(message, key):
     import hmac
     import hashlib
     import base64
-    h = hmac.new(key, message.encode(), hashlib.sha256)
+    if isinstance(message, str):
+        message = message.encode()
+    h = hmac.new(key, message, hashlib.sha256)
     return base64.b64encode(h.digest()).decode()
 
 @app.route('/download_folder/<int:folder_id>')
@@ -1577,8 +1641,30 @@ def api_file_preview(file_id):
     }
     if file_ext in ALLOWED_TEXT_EXTENSIONS:
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            if file.is_encrypted:
+                # Read encrypted content
+                with open(file_path, 'rb') as f:
+                    encrypted_content = f.read()
+                print(f"Type of encrypted_content (api_file_preview): {type(encrypted_content)}")
+
+                # Get user's private key
+                user_private_key = get_user_private_key(current_user.id)
+                print(f"Type of user_private_key (api_file_preview): {type(user_private_key)}")
+                
+                # Decrypt AES key
+                aes_key = decrypt_with_rsa(file.encrypted_aes_key, user_private_key)
+
+                # Verify HMAC
+                if not verify_hmac(encrypted_content, file.hmac, aes_key):
+                    return jsonify({'success': False, 'message': 'File integrity check failed.'}), 400
+
+                # Decrypt content
+                iv = base64.b64decode(file.iv)
+                decrypted_content = decrypt_with_aes(encrypted_content, aes_key, iv)
+                content = decrypted_content.decode('utf-8')
+            else:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
         except UnicodeDecodeError:
             with open(file_path, 'r', encoding='latin-1') as f:
                 content = f.read()

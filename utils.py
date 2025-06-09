@@ -81,7 +81,7 @@ def encrypt_with_aes(data, key, iv):
     encryptor = cipher.encryptor()
     
     # Pad the data
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padder = sym_padding.PKCS7(algorithms.AES.block_size).padder()
     padded_data = padder.update(data) + padder.finalize()
     
     # Encrypt
@@ -101,7 +101,7 @@ def decrypt_with_aes(encrypted_data, key, iv):
     padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
     
     # Unpad
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    unpadder = sym_padding.PKCS7(algorithms.AES.block_size).unpadder()
     data = unpadder.update(padded_data) + unpadder.finalize()
     
     return data
@@ -120,7 +120,10 @@ def encrypt_with_rsa(data, public_key):
 
 def decrypt_with_rsa(encrypted_data, private_key):
     """Decrypt data with RSA private key"""
+    print(f"Type of encrypted_data (decrypt_with_rsa): {type(encrypted_data)}")
+    print(f"Type of private_key (decrypt_with_rsa): {type(private_key)}")
     encrypted = base64.b64decode(encrypted_data)
+    print(f"Type of encrypted (after base64.b64decode): {type(encrypted)}")
     decrypted = private_key.decrypt(
         encrypted,
         asym_padding.OAEP(
@@ -129,10 +132,23 @@ def decrypt_with_rsa(encrypted_data, private_key):
             label=None
         )
     )
+    print(f"Type of decrypted (after private_key.decrypt): {type(decrypted)}")
     return decrypted
 
 def generate_hmac(data, key):
     """Generate HMAC for data integrity verification"""
+    # Ensure key is bytes
+    if not isinstance(key, (bytes, bytearray)):
+        try:
+            key = base64.b64decode(key)
+        except Exception as e:
+            print(f"Error decoding key in generate_hmac: {e}. Key type: {type(key)}")
+            raise
+
+    # Ensure data is bytes
+    if isinstance(data, str):
+        data = data.encode('utf-8')
+
     h = hmac.new(key, data, hashlib.sha256)
     return base64.b64encode(h.digest()).decode()
 
@@ -143,6 +159,8 @@ def verify_hmac(data, hmac_value, key):
 
 def sign_message(message, private_key):
     """Signe un message avec une clé privée RSA (SHA-256)."""
+    if isinstance(message, bytes):
+        message = message.decode('utf-8')
     signature = private_key.sign(
         message.encode(),
         asym_padding.PSS(
@@ -156,6 +174,8 @@ def sign_message(message, private_key):
 def verify_signature(message, signature, public_key):
     """Vérifie la signature d'un message avec une clé publique RSA (SHA-256)."""
     try:
+        if isinstance(message, bytes):
+            message = message.decode('utf-8')
         public_key.verify(
             base64.b64decode(signature),
             message.encode(),
