@@ -3,6 +3,7 @@ FROM python:3.8-slim
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     libmagic1 \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -15,19 +16,27 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install python-magic
 
+# Create non-root user
+RUN useradd -m appuser
+
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p uploads keys data/db
+# Create necessary directories and set permissions
+RUN mkdir -p uploads keys \
+    && chown -R appuser:appuser /app \
+    && chmod -R 755 /app
 
 # Set environment variables
 ENV FLASK_APP=app.py
-ENV FLASK_ENV=development
+ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 5000
 
 # Run the application
-CMD ["flask", "run", "--host=0.0.0.0"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"] 

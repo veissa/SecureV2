@@ -8,10 +8,59 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./keys:/app/keys
-      - ./data/db:/app/data/db
+      - ./migrations:/app/migrations
     environment:
       - FLASK_APP=app.py
-      - FLASK_ENV=development
-      - SECRET_KEY=default-secret-key-for-development
-      - VIRUSTOTAL_API_KEY=134e44c0dab3892634f100559ebfed57bbe8d03c57cdab3b9f3f100af03a2e03
-    restart: unless-stopped 
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
+      - DATABASE_URL=postgresql://user:password@db:5432/securev2
+    depends_on:
+      - db
+    networks:
+      - secure_network
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp
+      - /var/run
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: >
+      sh -c "flask db init &&
+             flask db migrate &&
+             flask db upgrade &&
+             python create_admin.py &&
+             gunicorn --bind 0.0.0.0:5000 app:app"
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=securev2
+    networks:
+      - secure_network
+    restart: unless-stopped
+    user: postgres
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  secure_network:
+    driver: bridge 
